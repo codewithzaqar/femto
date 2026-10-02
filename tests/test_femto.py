@@ -16,10 +16,12 @@ from femto.config import Config
 from femto.cursor import Cursor
 from femto.history import History
 from femto.layout import (
+    char_width,
     chunk_line,
     get_logical_from_visual,
     get_visual_position,
     line_row_count,
+    visual_width,
 )
 
 
@@ -96,6 +98,14 @@ class TestLayout(unittest.TestCase):
         self.assertEqual(line_row_count(10, 10), 1)
         self.assertEqual(line_row_count(11, 10), 2)
 
+    def test_visual_position_cjk(self):
+        lines = ["abc你好"]
+        vx, vy = get_visual_position(4, 0, lines, 5)
+        self.assertEqual((vx, vy), (0, 1))
+
+        vx, vy = get_visual_position(5, 0, lines, 5)
+        self.assertEqual((vx, vy), (2, 1))
+
     def test_visual_position_wrap(self):
         lines = ["0123456789ABCDE"]          # 15 chars, width 10 -> 2 rows
         vx, vy = get_visual_position(12, 0, lines, 10)
@@ -111,6 +121,25 @@ class TestLayout(unittest.TestCase):
         for y in range(len(lines)):
             vx, vy = get_visual_position(0, y, lines, 10)
             self.assertEqual(get_logical_from_visual(vy, lines, 10), y)
+
+    def test_chunk_line_emoji(self):
+        self.assertEqual(chunk_line("abc🚀", 5), ["abc🚀"])
+
+    def test_char_width_unicode(self):
+        self.assertEqual(char_width("a"), 1)
+        self.assertEqual(char_width("你"), 2)
+        self.assertEqual(char_width("Ａ"), 2)
+        self.assertEqual(char_width("́"), 0)
+        self.assertEqual(char_width("\u200d"), 0)
+        self.assertEqual(char_width("🚀"), 2)
+
+    def test_visual_width_unicode(self):
+        self.assertEqual(visual_width("abc你好"), 7)
+        self.assertEqual(visual_width("abcＡ"), 5)
+        self.assertEqual(visual_width("é"), 1)
+
+    def test_chunk_line_cjk(self):
+        self.assertEqual(chunk_line("abc你好", 5), ["abc你", "好"])
 
     def test_chunk_line(self):
         self.assertEqual(chunk_line("", 5), [""])
