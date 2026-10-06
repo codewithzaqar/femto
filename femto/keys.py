@@ -19,13 +19,20 @@ def alt_code(key):
     return key & ~ALT_MASK
 
 
-# Legacy Alt calibration tables (kept for --key-debug users; no Alt
-# bindings ship by default anymore - Ctrl is used instead).
-ALT_BASES = ""
+# Alt base letters used for line operations and Alt key translation.
+ALT_BASES = "dtTsSuUlL"
 CONHOST_ALT_MAP = {}
 
 
 class Key:
+    # Line operations (v0.0.4)
+    ALT_D = alt(ord('d'))
+    ALT_T = alt(ord('t'))
+    ALT_S = alt(ord('s'))
+    ALT_SHIFT_S = alt(ord('S'))
+    ALT_U = alt(ord('u'))
+    ALT_L = alt(ord('l'))
+
     # File / mode commands
     CTRL_X = 24
     CTRL_S = 19

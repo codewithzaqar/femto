@@ -19,6 +19,7 @@ from femto.config import Config
 from femto.cursor import Cursor
 from femto.documents import Document
 from femto.history import History
+from femto.keys import Key, alt
 from femto.layout import (
     chunk_line,
     col_to_index,
@@ -455,6 +456,219 @@ class TestAutoIndentApp(unittest.TestCase):
         self._press_enter(app)
         self.assertEqual(app.buffer.lines, ["    hello", ""])
         self.assertEqual(app.cursor.x, 0)
+
+
+class TestLineOperations(unittest.TestCase):
+    def setUp(self):
+        self.buf = Buffer(Config())
+
+    def test_duplicate_line(self):
+        self.buf.lines = ["alpha", "beta"]
+        new_y = self.buf.duplicate_line(0)
+        self.assertEqual(new_y, 1)
+        self.assertEqual(self.buf.lines, ["alpha", "alpha", "beta"])
+        self.assertTrue(self.buf.modified)
+
+    def test_duplicate_line_single_line_buffer(self):
+        self.buf.lines = ["only"]
+        new_y = self.buf.duplicate_line(0)
+        self.assertEqual(new_y, 1)
+        self.assertEqual(self.buf.lines, ["only", "only"])
+
+    def test_duplicate_line_clamps_y(self):
+        self.buf.lines = ["line"]
+        new_y = self.buf.duplicate_line(99)
+        self.assertEqual(new_y, 1)
+        self.assertEqual(self.buf.lines, ["line", "line"])
+
+    def test_transpose_line(self):
+        self.buf.lines = ["first", "second", "third"]
+        new_y = self.buf.transpose_line(1)
+        self.assertEqual(new_y, 0)
+        self.assertEqual(self.buf.lines, ["second", "first", "third"])
+        self.assertTrue(self.buf.modified)
+
+    def test_transpose_line_at_top_clamps_safely(self):
+        self.buf.lines = ["first", "second"]
+        new_y = self.buf.transpose_line(0)
+        self.assertEqual(new_y, 0)
+        self.assertEqual(self.buf.lines, ["first", "second"])
+
+    def test_transpose_line_single_line_clamps_safely(self):
+        self.buf.lines = ["only"]
+        new_y = self.buf.transpose_line(0)
+        self.assertEqual(new_y, 0)
+        self.assertEqual(self.buf.lines, ["only"])
+
+    def test_sort_lines_lexicographic(self):
+        self.buf.lines = ["gamma", "alpha", "beta"]
+        count = self.buf.sort_lines(0, 2, case_sensitive=True)
+        self.assertEqual(count, 3)
+        self.assertEqual(self.buf.lines, ["alpha", "beta", "gamma"])
+        self.assertTrue(self.buf.modified)
+
+    def test_sort_lines_case_insensitive(self):
+        self.buf.lines = ["b", "A", "a", "B"]
+        count = self.buf.sort_lines(0, 3, case_sensitive=False)
+        self.assertEqual(count, 4)
+        self.assertEqual(self.buf.lines, ["A", "a", "B", "b"])
+
+    def test_sort_lines_clamps_safely(self):
+        self.buf.lines = ["one"]
+        count = self.buf.sort_lines(0, 0)
+        self.assertEqual(count, 0)
+        self.assertEqual(self.buf.lines, ["one"])
+
+    def test_transform_case_single_line(self):
+        self.buf.lines = ["hello world"]
+        self.buf.transform_case(((0, 0), (5, 0)), upper=True)
+        self.assertEqual(self.buf.lines, ["HELLO world"])
+        self.buf.transform_case(((0, 0), (5, 0)), upper=False)
+        self.assertEqual(self.buf.lines, ["hello world"])
+
+    def test_transform_case_multi_line(self):
+        self.buf.lines = ["hello", "brave", "world"]
+        self.buf.transform_case(((2, 0), (3, 2)), upper=True)
+        self.assertEqual(self.buf.lines, ["heLLO", "BRAVE", "WORld"])
+
+    def test_transform_case_empty_selection_clamps_safely(self):
+        self.buf.lines = ["unchanged"]
+        self.buf.transform_case(((2, 0), (2, 0)), upper=True)
+        self.assertEqual(self.buf.lines, ["unchanged"])
+
+    def test_insert_text_single_and_multi_line(self):
+        self.buf.lines = ["ac"]
+        pos = self.buf.insert_text(1, 0, "b")
+        self.assertEqual(pos, (2, 0))
+        self.assertEqual(self.buf.lines, ["abc"])
+
+        pos = self.buf.insert_text(2, 0, "1\n2")
+        self.assertEqual(pos, (1, 1))
+        self.assertEqual(self.buf.lines, ["ab1", "2c"])
+
+
+@unittest.skipUnless(HAVE_APP, "Application unavailable")
+class TestLineOperationsAppIntegration(unittest.TestCase):
+    def _app(self):
+        app = Application(None)
+        app.config.auto_indent = False
+        return app
+
+    def test_app_alt_d_duplicates_current_line_with_undo(self):
+        app = self._app()
+        app.buffer.lines = ["line1", "line2"]
+        app.cursor.set_pos(2, 0, app.buffer.get_line_length, app.buffer.max_y)
+
+        app._handle_normal(Key.ALT_D, 24, 80)
+        self.assertEqual(app.buffer.lines, ["line1", "line1", "line2"])
+        self.assertEqual((app.cursor.x, app.cursor.y), (2, 1))
+        self.assertEqual(app.message, "Duplicated line.")
+
+        # Undo snapshot
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["line1", "line2"])
+
+        # Redo
+        app._handle_normal(Key.CTRL_Y, 24, 80)
+        self.assertEqual(app.buffer.lines, ["line1", "line1", "line2"])
+
+    def test_app_alt_d_duplicates_selection_with_undo(self):
+        app = self._app()
+        app.buffer.lines = ["hello world"]
+        app.cursor.set_pos(0, 0, app.buffer.get_line_length, app.buffer.max_y)
+        app._handle_normal(Key.CTRL_B, 24, 80)  # Mark at (0, 0)
+        app.cursor.set_pos(5, 0, app.buffer.get_line_length, app.buffer.max_y)
+
+        app._handle_normal(Key.ALT_D, 24, 80)
+        self.assertEqual(app.buffer.lines, ["hellohello world"])
+        self.assertEqual(app.message, "Duplicated selection.")
+
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["hello world"])
+
+    def test_app_alt_t_transposes_line_with_undo(self):
+        app = self._app()
+        app.buffer.lines = ["first", "second"]
+        app.cursor.set_pos(1, 1, app.buffer.get_line_length, app.buffer.max_y)
+
+        app._handle_normal(Key.ALT_T, 24, 80)
+        self.assertEqual(app.buffer.lines, ["second", "first"])
+        self.assertEqual(app.cursor.y, 0)
+        self.assertEqual(app.message, "Transposed line.")
+
+        # At top of file (y=0), transpose is safe no-op
+        app._handle_normal(Key.ALT_T, 24, 80)
+        self.assertEqual(app.buffer.lines, ["second", "first"])
+
+        # Undo
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["first", "second"])
+
+    def test_app_alt_s_and_alt_shift_s_sorts_selection(self):
+        app = self._app()
+        app.buffer.lines = ["banana", "Apple", "cherry"]
+        app.cursor.set_pos(0, 0, app.buffer.get_line_length, app.buffer.max_y)
+        app._handle_normal(Key.CTRL_B, 24, 80)
+        app.cursor.set_pos(6, 2, app.buffer.get_line_length, app.buffer.max_y)
+
+        # Alt+S (case-sensitive)
+        app._handle_normal(Key.ALT_S, 24, 80)
+        self.assertEqual(app.buffer.lines, ["Apple", "banana", "cherry"])
+        self.assertEqual(app.message, "Sorted 3 lines.")
+
+        # Undo
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["banana", "Apple", "cherry"])
+
+        # Alt+Shift+S (case-insensitive)
+        app.buffer.lines = ["b", "A", "c"]
+        app.cursor.set_pos(0, 0, app.buffer.get_line_length, app.buffer.max_y)
+        app._handle_normal(Key.CTRL_B, 24, 80)
+        app.cursor.set_pos(1, 2, app.buffer.get_line_length, app.buffer.max_y)
+
+        app._handle_normal(Key.ALT_SHIFT_S, 24, 80)
+        self.assertEqual(app.buffer.lines, ["A", "b", "c"])
+        self.assertEqual(app.message, "Sorted 3 lines.")
+
+    def test_app_alt_u_and_alt_l_transform_case_with_undo(self):
+        app = self._app()
+        app.buffer.lines = ["quick brown fox"]
+        app.cursor.set_pos(6, 0, app.buffer.get_line_length, app.buffer.max_y)
+        app._handle_normal(Key.CTRL_B, 24, 80)
+        app.cursor.set_pos(11, 0, app.buffer.get_line_length, app.buffer.max_y)
+
+        # Alt+U -> uppercase
+        app._handle_normal(Key.ALT_U, 24, 80)
+        self.assertEqual(app.buffer.lines, ["quick BROWN fox"])
+        self.assertEqual(app.message, "Uppercase.")
+
+        # Alt+L -> lowercase
+        app._handle_normal(Key.ALT_L, 24, 80)
+        self.assertEqual(app.buffer.lines, ["quick brown fox"])
+        self.assertEqual(app.message, "Lowercase.")
+
+        # Undo
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["quick BROWN fox"])
+        app._handle_normal(Key.CTRL_Z, 24, 80)
+        self.assertEqual(app.buffer.lines, ["quick brown fox"])
+
+    def test_app_clamps_safely_without_selection(self):
+        app = self._app()
+        app.buffer.lines = ["hello"]
+        app.cursor.set_pos(0, 0, app.buffer.get_line_length, app.buffer.max_y)
+
+        app._handle_normal(Key.ALT_S, 24, 80)
+        self.assertEqual(app.message, "No selection to sort.")
+        self.assertEqual(app.buffer.lines, ["hello"])
+
+        app._handle_normal(Key.ALT_U, 24, 80)
+        self.assertEqual(app.message, "No selection.")
+        self.assertEqual(app.buffer.lines, ["hello"])
+
+        app._handle_normal(Key.ALT_L, 24, 80)
+        self.assertEqual(app.message, "No selection.")
+        self.assertEqual(app.buffer.lines, ["hello"])
 
 
 if __name__ == "__main__":

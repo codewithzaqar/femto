@@ -240,6 +240,72 @@ class Application:
                 self.clipboard.store(text)
         return text
 
+    # ── line operations (v0.0.4) ─────────────────────────────
+
+    def _duplicate(self):
+        self._snapshot()
+        self.last_match = None
+        bounds = self._current_bounds()
+        if self.selection.active and not self.selection.is_empty(bounds):
+            text = self.selection.extract(self.buffer, bounds)
+            (sx, sy), (ex, ey) = bounds
+            if sy != ey and sx == 0 and (ex == 0 or ex == self.buffer.get_line_length(ey)):
+                end_y = ey if ex > 0 or ey == sy else ey - 1
+                lines_to_dup = self.buffer.lines[sy:end_y + 1]
+                insert_at = end_y + 1
+                self.buffer.lines[insert_at:insert_at] = list(lines_to_dup)
+                self.buffer.touch()
+                self.cursor.y = insert_at
+                self.cursor.x = min(self.cursor.x, self.buffer.get_line_length(self.cursor.y))
+            else:
+                nx, ny = self.buffer.insert_text(ex, ey, text)
+                self.cursor.x, self.cursor.y = nx, ny
+            self.selection.clear()
+            self.message = "Duplicated selection."
+        else:
+            y = self.cursor.y
+            new_y = self.buffer.duplicate_line(y)
+            self.cursor.y = new_y
+            self.cursor.x = min(self.cursor.x, self.buffer.get_line_length(new_y))
+            self.message = "Duplicated line."
+
+    def _transpose(self):
+        if len(self.buffer.lines) <= 1 or self.cursor.y <= 0:
+            return
+        self._snapshot()
+        self.last_match = None
+        new_y = self.buffer.transpose_line(self.cursor.y)
+        self.cursor.y = new_y
+        self.cursor.x = min(self.cursor.x, self.buffer.get_line_length(new_y))
+        self.message = "Transposed line."
+
+    def _sort_lines(self, case_sensitive=True):
+        bounds = self._current_bounds()
+        if not self.selection.active or self.selection.is_empty(bounds):
+            self.message = "No selection to sort."
+            return
+        (sx, sy), (ex, ey) = bounds
+        start_y = sy
+        end_y = ey if ex > 0 or ey == sy else ey - 1
+        if start_y >= end_y:
+            self.message = "Need at least 2 lines selected to sort."
+            return
+        self._snapshot()
+        self.last_match = None
+        count = self.buffer.sort_lines(start_y, end_y, case_sensitive=case_sensitive)
+        self.selection.clear()
+        self.message = f"Sorted {count} lines."
+
+    def _transform_case(self, upper=True):
+        bounds = self._current_bounds()
+        if not self.selection.active or self.selection.is_empty(bounds):
+            self.message = "No selection."
+            return
+        self._snapshot()
+        self.last_match = None
+        self.buffer.transform_case(bounds, upper=upper)
+        self.message = "Uppercase." if upper else "Lowercase."
+
     # ── mouse ────────────────────────────────────────────────
 
     def _handle_mouse(self, stdscr):
@@ -691,6 +757,20 @@ class Application:
             self._do_undo(); return
         if key == Key.CTRL_Y:
             self._do_redo(); return
+
+        # Line operations (v0.0.4)
+        if key in (Key.ALT_D, alt(ord('D'))):
+            self._duplicate(); return
+        if key in (Key.ALT_T, alt(ord('T'))):
+            self._transpose(); return
+        if key == Key.ALT_S:
+            self._sort_lines(case_sensitive=True); return
+        if key == Key.ALT_SHIFT_S:
+            self._sort_lines(case_sensitive=False); return
+        if key in (Key.ALT_U, alt(ord('U'))):
+            self._transform_case(upper=True); return
+        if key in (Key.ALT_L, alt(ord('L'))):
+            self._transform_case(upper=False); return
 
         # Navigation
         if key == Key.CTRL_LEFT:

@@ -222,6 +222,99 @@ class Buffer:
         hit = find_next(self, term, SearchOptions(), start_x, start_y)
         return (hit[0], hit[1]) if hit else None
 
+    # ── Line Operations (v0.0.4) ──────────────────────────────
+
+    def insert_text(self, x, y, text):
+        """Insert multi-line or single-line text at (x, y); returns new (x, y)."""
+        if not text:
+            return x, y
+        chunks = text.split("\n")
+        y = max(0, min(y, len(self.lines) - 1))
+        line = self.lines[y]
+        x = max(0, min(x, len(line)))
+        head, tail = line[:x], line[x:]
+        if len(chunks) == 1:
+            self.lines[y] = head + chunks[0] + tail
+            new_pos = (x + len(chunks[0]), y)
+        else:
+            first = head + chunks[0]
+            last = chunks[-1] + tail
+            self.lines[y:y + 1] = [first] + chunks[1:-1] + [last]
+            new_pos = (len(chunks[-1]), y + len(chunks) - 1)
+        self.touch()
+        return new_pos
+
+    def duplicate_line(self, y):
+        """Duplicate line y below itself; returns new line index."""
+        if not self.lines:
+            self.lines = [""]
+            self.touch()
+            return 0
+        y = max(0, min(y, len(self.lines) - 1))
+        self.lines.insert(y + 1, self.lines[y])
+        self.touch()
+        return y + 1
+
+    def transpose_line(self, y):
+        """Transpose line y with line y - 1; returns new line index."""
+        if len(self.lines) <= 1 or y <= 0 or y >= len(self.lines):
+            return y
+        self.lines[y - 1], self.lines[y] = self.lines[y], self.lines[y - 1]
+        self.touch()
+        return y - 1
+
+    def sort_lines(self, start_y, end_y, case_sensitive=True):
+        """Sort lines from start_y to end_y inclusive; returns count sorted."""
+        if len(self.lines) <= 1:
+            return 0
+        start_y = max(0, min(start_y, len(self.lines) - 1))
+        end_y = max(0, min(end_y, len(self.lines) - 1))
+        if start_y > end_y:
+            start_y, end_y = end_y, start_y
+        if start_y == end_y:
+            return 0
+        target = self.lines[start_y:end_y + 1]
+        if case_sensitive:
+            sorted_lines = sorted(target)
+        else:
+            sorted_lines = sorted(target, key=lambda s: (s.casefold(), s))
+        self.lines[start_y:end_y + 1] = sorted_lines
+        self.touch()
+        return end_y - start_y + 1
+
+    def transform_case(self, bounds, upper=True):
+        """Transform text in bounds [start, end) to upper or lower case."""
+        (sx, sy), (ex, ey) = bounds
+        if (sx, sy) == (ex, ey) or not self.lines:
+            return
+        if (sy, sx) > (ey, ex):
+            (sx, sy), (ex, ey) = (ex, ey), (sx, sy)
+
+        sy = max(0, min(sy, len(self.lines) - 1))
+        ey = max(0, min(ey, len(self.lines) - 1))
+        transform = str.upper if upper else str.lower
+
+        if sy == ey:
+            line = self.lines[sy]
+            sx = max(0, min(sx, len(line)))
+            ex = max(0, min(ex, len(line)))
+            if sx >= ex:
+                return
+            self.lines[sy] = line[:sx] + transform(line[sx:ex]) + line[ex:]
+        else:
+            first_line = self.lines[sy]
+            sx = max(0, min(sx, len(first_line)))
+            self.lines[sy] = first_line[:sx] + transform(first_line[sx:])
+
+            for y in range(sy + 1, ey):
+                self.lines[y] = transform(self.lines[y])
+
+            last_line = self.lines[ey]
+            ex = max(0, min(ex, len(last_line)))
+            self.lines[ey] = transform(last_line[:ex]) + last_line[ex:]
+
+        self.touch()
+
     # ── Helpers ──────────────────────────────────────────────
 
     def get_line_length(self, y):

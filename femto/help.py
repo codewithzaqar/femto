@@ -19,6 +19,10 @@ KEYBINDINGS = {
         ("Tab", "Indent / complete path in Save-As"),
         ("Shift+Tab", "Unindent"),
         ("^Z / ^Y", "Undo / Redo"),
+        ("Alt+D", "Duplicate line or selection below"),
+        ("Alt+T", "Transpose line with line above"),
+        ("Alt+S", "Sort selected lines (Alt+Shift+S case-insensitive)"),
+        ("Alt+U / Alt+L", "Uppercase / lowercase selection"),
     ],
     "Navigation": [
         ("Arrows", "Move cursor"),
