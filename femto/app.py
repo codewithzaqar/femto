@@ -325,6 +325,7 @@ class Application:
             keyf = (lambda s: s) if case_sens else (lambda s: s.lower())
             self.buffer.lines[lo:hi + 1] = sorted(seg, key=keyf)
             self.buffer.touch()
+            self.selection.clear()
             self.message = f"Sorted {hi - lo + 1} lines."
             return
 
