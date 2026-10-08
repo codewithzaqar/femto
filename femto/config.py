@@ -3,7 +3,93 @@ Configuration file parser for Femto.
 Looks for ~/.femtorc or ./.femtorc
 """
 
+import configparser
+import copy
+import fnmatch
 import os
+from pathlib import PurePosixPath
+
+
+_EDITORCONFIG_PREAMBLE = "__editorconfig_preamble__"
+
+
+def _read_editorconfig(path):
+    parser = configparser.ConfigParser(
+        interpolation=None,
+        strict=False,
+        delimiters=("=",),
+        default_section="__editorconfig_default__",
+    )
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        parser.read_string(
+            f"[{_EDITORCONFIG_PREAMBLE}]\n{content}",
+            source=path,
+        )
+    except (OSError, UnicodeError, configparser.Error):
+        return None
+    return parser
+
+
+def _matches_editorconfig_section(section, filepath, config_path):
+    relative = os.path.relpath(
+        filepath,
+        os.path.dirname(config_path),
+    ).replace(os.sep, "/")
+    pattern = section.strip().lstrip("/")
+
+    if "/" in pattern:
+        return PurePosixPath(relative).match(pattern)
+    return fnmatch.fnmatchcase(os.path.basename(relative), pattern)
+
+
+def _editorconfig_settings(filepath):
+    if not filepath:
+        return {}
+
+    filepath = os.path.abspath(filepath)
+    directory = os.path.dirname(filepath) or os.curdir
+    files = []
+
+    while True:
+        path = os.path.join(directory, ".editorconfig")
+        if os.path.isfile(path):
+            parser = _read_editorconfig(path)
+            if parser is not None:
+                files.append((path, parser))
+                root = parser.get(
+                    _EDITORCONFIG_PREAMBLE,
+                    "root",
+                    fallback="false",
+                    raw=True,
+                )
+                if root.strip().lower() == "true":
+                    break
+
+        parent = os.path.dirname(directory)
+        if parent == directory:
+            break
+        directory = parent
+
+    settings = {}
+    for path, parser in reversed(files):
+        for section in parser.sections():
+            if section == _EDITORCONFIG_PREAMBLE:
+                continue
+            if not _matches_editorconfig_section(section, filepath, path):
+                continue
+
+            for key, value in parser.items(section, raw=True):
+                key = key.strip().lower()
+                value = value.strip()
+                if value.lower() == "unset":
+                    settings.pop(key, None)
+                else:
+                    settings[key] = value
+
+    return settings
+
 
 
 class Config:
@@ -35,6 +121,32 @@ class Config:
             if os.path.exists(path):
                 self._parse(path)
                 break
+
+    def for_file(self, filepath):
+        scoped = copy.copy(self)
+        settings = _editorconfig_settings(filepath)
+
+        indent_size = settings.get("indent_size")
+        if indent_size and indent_size.lower() == "tab":
+            indent_size = settings.get("tab_width")
+        if indent_size:
+            try:
+                size = int(indent_size)
+            except ValueError:
+                pass
+            else:
+                if size > 0:
+                    scoped.tab_size = size
+
+        line_ending = settings.get("end_of_line", "").lower()
+        if line_ending in ("lf", "crlf", "cr"):
+            scoped.line_ending = line_ending
+
+        final_newline = settings.get("insert_final_newline", "").lower()
+        if final_newline in ("true", "false"):
+            scoped.final_newline = final_newline == "true"
+
+        return scoped
 
     def _parse(self, path):
         try:

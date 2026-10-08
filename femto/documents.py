@@ -16,7 +16,8 @@ class Document:
     """Bundles all per-file editor state."""
 
     def __init__(self, config, filename=None):
-        self.buffer = Buffer(config)
+        file_config = config.for_file(filename) if filename else config
+        self.buffer = Buffer(file_config)
         self.buffer.load_file(filename)
         self.cursor = Cursor()
         self.history = History()

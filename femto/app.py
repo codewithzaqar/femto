@@ -236,7 +236,7 @@ class Application:
                 if self.buffer.filename and self.buffer.filename.endswith('.py'):
                     code = self.buffer.lines[self.cursor.y - 1].split('#')[0].rstrip()
                     if code.endswith(':'):
-                        indent += " " * self.config.tab_size
+                        indent += " " * self.buffer.config.tab_size
                 self.buffer.lines[self.cursor.y] = indent + self.buffer.lines[self.cursor.y]
                 self.buffer.touch()
                 self.cursor.x = len(indent)
