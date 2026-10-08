@@ -19,10 +19,11 @@ KEYBINDINGS = {
         ("Tab", "Indent / complete path in Save-As"),
         ("Shift+Tab", "Unindent"),
         ("^Z / ^Y", "Undo / Redo"),
-        ("Alt+D", "Duplicate line or selection below"),
-        ("Alt+T", "Transpose line with line above"),
-        ("Alt+S", "Sort selected lines (Alt+Shift+S case-insensitive)"),
-        ("Alt+U / Alt+L", "Uppercase / lowercase selection"),
+        ("^D", "Duplicate line or selection"),
+        ("^E", "Transpose line with line above"),
+        ("^O / ^R", "Sort selection (case-sensitive / ignore case)"),
+        ("^A / ^G", "Upper-case / lower-case selection"),
+        ("Alt+D/T/S/U/L", "Legacy aliases for the line ops above"),
     ],
     "Navigation": [
         ("Arrows", "Move cursor"),
@@ -34,8 +35,8 @@ KEYBINDINGS = {
     "Clipboard & Selection": [
         ("^B", "Set / clear mark"),
         ("^K", "Cut line or selection"),
-        ("^P", "Copy line or selection"),
-        ("^U", "Paste clipboard"),
+        ("^C / ^P", "Copy line or selection"),
+        ("^V / ^U", "Paste clipboard"),
     ],
     "Search & Replace": [
         ("^W", "Search / find next"),
@@ -46,7 +47,7 @@ KEYBINDINGS = {
     "Buffers & View": [
         ("^F / ^L", "Next / previous buffer"),
         ("^N", "Toggle line numbers"),
-        ("^D", "Toggle mouse support"),
+        ("^Q", "Toggle mouse support"),
     ],
     "Mouse": [
         ("Wheel", "Scroll viewport"),

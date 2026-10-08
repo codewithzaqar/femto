@@ -19,6 +19,7 @@ from femto.search import SearchOptions, find_next, find_all
 from femto.swap import write_swap, read_swap, delete_swap
 from femto.session import save_session, load_session
 from femto.sysclip import copy_to_system, paste_from_system
+from femto.layout import get_logical_from_visual_point
 
 
 class Mode(Enum):
@@ -61,7 +62,7 @@ class Application:
         if not self.documents:
             self.new_buffer()
 
-    # ── properties ────────────────────────────────────────────
+    # ── properties ───────────────────────────────────────────
     @property
     def document(self): return self.documents[self.current]
     @property
@@ -97,20 +98,74 @@ class Application:
                   if self.config.show_line_numbers else 0)
         return max(1, width - gutter)
 
+    # ── bulletproof key reading ───────────────────────────────
+    def _read_key(self):
+        """Handles get_wch/getch differences, Alt escapes, backspace variants."""
+        try:
+            key = self.stdscr.get_wch()
+        except curses.error:
+            return -1
+        except AttributeError:
+            key = self.stdscr.getch()
+
+        # Backspace: normalize all variants
+        if key in (8, 127, '\x7f', '\x08'):
+            return curses.KEY_BACKSPACE
+
+        if key == '\t' or key == 9:
+            return getattr(Key, 'TAB', 9)
+
+        # Alt keys via escape strings (get_wch): legacy aliases
+        if isinstance(key, str) and len(key) >= 2 and key[0] == '\x1b':
+            char = key[1]
+            mapping = {
+                'd': getattr(Key, 'ALT_D', None), 'D': getattr(Key, 'ALT_D', None),
+                't': getattr(Key, 'ALT_T', None), 'T': getattr(Key, 'ALT_T', None),
+                's': getattr(Key, 'ALT_S', None), 'S': getattr(Key, 'ALT_SHIFT_S', None),
+                'u': getattr(Key, 'ALT_U', None), 'U': getattr(Key, 'ALT_U', None),
+                'l': getattr(Key, 'ALT_L', None), 'L': getattr(Key, 'ALT_L', None),
+            }
+            mapped = mapping.get(char)
+            if mapped is not None:
+                return mapped
+            return key
+
+        # Alt keys via raw ESC (27) + char (getch style): legacy aliases
+        if isinstance(key, int) and key == 27:
+            self.stdscr.nodelay(True)
+            try:
+                k2 = self.stdscr.getch()
+                if k2 != -1:
+                    mapping = {
+                        ord('d'): getattr(Key, 'ALT_D', None), ord('D'): getattr(Key, 'ALT_D', None),
+                        ord('t'): getattr(Key, 'ALT_T', None), ord('T'): getattr(Key, 'ALT_T', None),
+                        ord('s'): getattr(Key, 'ALT_S', None), ord('S'): getattr(Key, 'ALT_SHIFT_S', None),
+                        ord('u'): getattr(Key, 'ALT_U', None), ord('U'): getattr(Key, 'ALT_U', None),
+                        ord('l'): getattr(Key, 'ALT_L', None), ord('L'): getattr(Key, 'ALT_L', None),
+                    }
+                    mapped = mapping.get(k2)
+                    if mapped is not None:
+                        return mapped
+                    return f'\x1b{chr(k2)}' if 0 <= k2 < 256 else 27
+            finally:
+                self.stdscr.nodelay(False)
+                self.stdscr.timeout(1000)
+            return 27
+
+        return key
+
     # ── main loop / render ────────────────────────────────────
     def main_loop(self):
         self.stdscr.timeout(1000)
         while self.running:
             self.render()
-            try:
-                key = self.stdscr.getch()
-            except curses.error:
-                continue
+            key = self._read_key()
             if key == -1:
                 self._tick_autosave()
                 continue
             rows, cols = self.renderer.get_dimensions()
             self.handle_input(key, rows, cols)
+
             gutter = (len(str(len(self.buffer.lines))) + 1
                       if self.config.show_line_numbers else 0)
             self.cursor.update_scroll(self.cursor.y, self.cursor.x,
@@ -146,7 +201,7 @@ class Application:
             self._handle_help(key, screen_rows, screen_cols)
         elif self.mode in (Mode.SEARCH, Mode.REPLACE_SEARCH,
                            Mode.REPLACE_WITH, Mode.SAVE_AS, Mode.GOTO_LINE):
-            self._handle_prompt(key)
+            self._handle_prompt(key, screen_rows, screen_cols)
         elif self.mode == Mode.EXIT_CONFIRM:
             self._handle_exit_confirm(key)
         else:
@@ -160,7 +215,7 @@ class Application:
             self._handle_mouse()
             return
 
-        # Alt line-ops first (raw key, any representation)
+        # Alt line-ops (legacy aliases; tests use these)
         if key in (getattr(Key, 'ALT_D', None), getattr(Key, 'ALT_T', None),
                    getattr(Key, 'ALT_S', None), getattr(Key, 'ALT_SHIFT_S', None),
                    getattr(Key, 'ALT_U', None), getattr(Key, 'ALT_L', None)):
@@ -171,7 +226,7 @@ class Application:
         if isinstance(key, str) and len(key) == 1:
             k = ord(key)
 
-        # Enter (10/13 are Ctrl+J/M — must precede the Ctrl block)
+        # Enter (must precede Ctrl block)
         if is_enter(key) or k in (10, 13, 343, 344):
             self._pre_edit()
             self.buffer.insert_newline(self.cursor.x, self.cursor.y)
@@ -191,24 +246,42 @@ class Application:
 
         # Ctrl keys (8=Backspace, 9=Tab, 10/13=Enter excluded)
         if isinstance(k, int) and 1 <= k <= 28 and k not in (8, 9, 10, 13):
-            if k == 24: self._quit()
-            elif k == 19: self._save()
-            elif k == 23: self._search()
-            elif k == 11: self._cut()
-            elif k == 16: self._copy()
-            elif k == 21: self._paste()
-            elif k == 26: self._undo()
-            elif k == 25: self._redo()
-            elif k == 6: self._switch_buffer(True)
-            elif k == 12: self._switch_buffer(False)
-            elif k == 14: self.config.show_line_numbers = not self.config.show_line_numbers
-            elif k == 4: self.config.mouse = not self.config.mouse
-            elif k == 20: self._goto_line()
-            elif k == 28: self._replace()
-            elif k == 2: self.selection.toggle(self.cursor.x, self.cursor.y)
+            if k == 24: self._quit()                      # ^X exit
+            elif k == 19: self._save()                    # ^S save
+            elif k == 23: self._search()                  # ^W find
+            elif k == 11: self._cut()                     # ^K cut
+            elif k == 16: self._copy()                    # ^P copy (nano alias)
+            elif k == 3: self._copy()                     # ^C copy (universal)
+            elif k == 21: self._paste()                   # ^U paste (nano alias)
+            elif k == 22: self._paste()                   # ^V paste (universal)
+            elif k == 26: self._undo()                    # ^Z undo
+            elif k == 25: self._redo()                    # ^Y redo
+            elif k == 6: self._switch_buffer(True)        # ^F next buffer
+            elif k == 12: self._switch_buffer(False)      # ^L prev buffer
+            elif k == 14: self.config.show_line_numbers = not self.config.show_line_numbers  # ^N
+            elif k == 17:                                 # ^Q mouse toggle
+                self.config.mouse = not self.config.mouse
+                if self.stdscr:
+                    try:
+                        if self.config.mouse:
+                            curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
+                        else:
+                            curses.mousemask(0)
+                    except curses.error:
+                        pass
+            elif k == 20: self._goto_line()               # ^T goto line
+            elif k == 28: self._replace()                 # ^\ replace
+            elif k == 2: self.selection.toggle(self.cursor.x, self.cursor.y)  # ^B mark
+            # ── Ctrl line-operations ──
+            elif k == 4: self._line_operation(getattr(Key, 'ALT_D', None))          # ^D duplicate
+            elif k == 5: self._line_operation(getattr(Key, 'ALT_T', None))          # ^E transpose
+            elif k == 15: self._line_operation(getattr(Key, 'ALT_S', None))         # ^O sort
+            elif k == 18: self._line_operation(getattr(Key, 'ALT_SHIFT_S', None))   # ^R sort ignore-case
+            elif k == 1: self._line_operation(getattr(Key, 'ALT_U', None))          # ^A uppercase
+            elif k == 7: self._line_operation(getattr(Key, 'ALT_L', None))          # ^G lowercase
             return
 
-        # Printable characters — BOTH str (get_wch) and int (getch)
+        # Printable characters
         ch = None
         if isinstance(key, str) and len(key) == 1 and ord(key) > 31:
             ch = key
@@ -232,7 +305,7 @@ class Application:
             elif key == curses.KEY_PPAGE: self.cursor.page_up(self.buffer, screen_rows)
             elif key == curses.KEY_NPAGE: self.cursor.page_down(self.buffer, screen_rows)
             elif key == curses.KEY_F1: self._enter_help()
-            elif is_backspace(key):
+            elif is_backspace(key) or key == curses.KEY_BACKSPACE:
                 self._pre_edit()
                 self.cursor.x, self.cursor.y = self.buffer.backspace(self.cursor.x, self.cursor.y)
             elif key == curses.KEY_DC:
@@ -312,61 +385,44 @@ class Application:
             self.message = "Uppercase." if is_upper else "Lowercase."
             return
 
-    # ── prompts ──────────────────────────────────────────────
+    # ── prompts ─────────────────────────────────────────────
     def _handle_prompt(self, key, screen_rows=24, screen_cols=80):
-        # Tab completion in Save-As
         if self.mode == Mode.SAVE_AS and key == Key.TAB:
             self._complete_path()
             return
 
-        # NORMALIZE: control keys may arrive as str ('\x0f') or int (15)
         k = key
         if isinstance(key, str) and len(key) == 1:
             k = ord(key)
 
-        # Enter → commit
         if is_enter(key) or k in (10, 13, 343, 344):
             self._commit_prompt()
             return
-        # Cancel → ^G (7) or Esc (27)
-        if k in (7, 27):
+        if k in (7, 27):  # ^G or Esc = cancel (prompt context only)
             self._cancel_prompt()
             return
-        # ^O (15) → toggle case-insensitive
-        if k == 15:
+        if k == 15:  # ^O case toggle (prompt context only)
             self.search_options.ignore_case = not self.search_options.ignore_case
             self._refresh_prompt_flags()
             return
-        # ^R (18) → toggle regex
-        if k == 18:
+        if k == 18:  # ^R regex toggle (prompt context only)
             self.search_options.regex = not self.search_options.regex
             self._refresh_prompt_flags()
             return
-        # Backspace
-        if is_backspace(key) or k in (8, 127):
+        if is_backspace(key) or k in (8, 127) or key == curses.KEY_BACKSPACE:
             self.prompt.backspace()
             self._prompt_changed()
             return
-        # Delete
         if isinstance(key, int) and key == curses.KEY_DC:
             self.prompt.delete()
             self._prompt_changed()
             return
-        # Cursor movement inside the prompt
         if isinstance(key, int):
-            if key == curses.KEY_LEFT:
-                self.prompt.move(-1)
-                return
-            if key == curses.KEY_RIGHT:
-                self.prompt.move(1)
-                return
-            if key == curses.KEY_HOME:
-                self.prompt.home()
-                return
-            if key == curses.KEY_END:
-                self.prompt.end()
-                return
-        # Printable characters (str from get_wch, int from getch)
+            if key == curses.KEY_LEFT: self.prompt.move(-1); return
+            if key == curses.KEY_RIGHT: self.prompt.move(1); return
+            if key == curses.KEY_HOME: self.prompt.home(); return
+            if key == curses.KEY_END: self.prompt.end(); return
+
         ch = None
         if isinstance(key, str) and len(key) == 1 and ord(key) > 31:
             ch = key
@@ -381,10 +437,8 @@ class Application:
         base = self.prompt.label.split(" [")[0]
         self.prompt.label = base + self.search_options.flag_label()
         self.message = ("case=" +
-                        ("insensitive" if self.search_options.ignore_case
-                         else "sensitive") +
-                        ", regex=" +
-                        ("on" if self.search_options.regex else "off"))
+                        ("insensitive" if self.search_options.ignore_case else "sensitive") +
+                        ", regex=" + ("on" if self.search_options.regex else "off"))
 
     def _prompt_changed(self):
         if self.mode == Mode.SEARCH:
@@ -401,6 +455,7 @@ class Application:
             self._live_search_update()
 
     def _live_search_update(self):
+        """Re-highlight matches live while typing in the Search prompt."""
         term = self.prompt.text
         if not term:
             self.all_matches, self.last_match = [], None
@@ -464,12 +519,9 @@ class Application:
                             self.cursor.x, self.cursor.y)
             if hit:
                 self.last_match = hit
-                self.cursor.set_pos(hit[0], hit[1],
-                                    self.buffer.get_line_length,
-                                    self.buffer.max_y)
+                self.cursor.set_pos(hit[0], hit[1], self.buffer.get_line_length, self.buffer.max_y)
                 try:
-                    self.all_matches = find_all(self.buffer, text,
-                                                self.search_options)
+                    self.all_matches = find_all(self.buffer, text, self.search_options)
                 except Exception:
                     self.all_matches = []
             else:
@@ -496,8 +548,7 @@ class Application:
             try:
                 line = int(text) - 1
                 self.cursor.set_pos(0, max(0, min(line, self.buffer.max_y)),
-                                    self.buffer.get_line_length,
-                                    self.buffer.max_y)
+                                    self.buffer.get_line_length, self.buffer.max_y)
             except ValueError:
                 self.message = "Invalid line number"
         self.mode = Mode.NORMAL
@@ -505,10 +556,8 @@ class Application:
 
     def _cancel_prompt(self):
         if self.mode == Mode.SEARCH:
-            self.cursor.set_pos(self.pre_search_cursor[0],
-                                self.pre_search_cursor[1],
-                                self.buffer.get_line_length,
-                                self.buffer.max_y)
+            self.cursor.set_pos(self.pre_search_cursor[0], self.pre_search_cursor[1],
+                                self.buffer.get_line_length, self.buffer.max_y)
             self.all_matches, self.last_match = [], None
         self.mode = Mode.NORMAL
         self.prompt.clear()
@@ -636,11 +685,20 @@ class Application:
     def _handle_mouse(self):
         try:
             _, mx, my, _, bstate = curses.getmouse()
-            if bstate & curses.BUTTON1_CLICKED:
+            if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED):
                 gutter = (len(str(len(self.buffer.lines))) + 1
                           if self.config.show_line_numbers else 0)
-                self.cursor.set_pos(max(0, mx - gutter), my + self.cursor.scroll_y,
-                                    self.buffer.get_line_length, self.buffer.max_y)
+                text_cols = self._get_text_cols()
+                vis_y = my + self.cursor.scroll_y
+                vis_x = max(0, mx - gutter)
+                if self.config.soft_wrap:
+                    x, y = get_logical_from_visual_point(
+                        vis_y, vis_x, self.buffer.lines, text_cols
+                    )
+                    self.cursor.set_pos(x, y, self.buffer.get_line_length, self.buffer.max_y)
+                else:
+                    x = vis_x + self.cursor.scroll_x
+                    self.cursor.set_pos(x, vis_y, self.buffer.get_line_length, self.buffer.max_y)
         except curses.error:
             pass
 
@@ -668,9 +726,13 @@ def main():
                          if b.get('filename') and os.path.exists(b['filename'])]
 
     def run(stdscr):
+        try:
+            stdscr.raw()   # deliver all control chars as keys on every OS
+        except curses.error:
+            pass
         if cfg.mouse:
             try:
-                curses.mousemask(curses.ALL_MOUSE_EVENTS)
+                curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
             except curses.error:
                 pass
         app = Application(stdscr, initial_files=cli_files)
