@@ -5,6 +5,7 @@ All notable changes to Femto are documented in this file.
 ## [0.0.4]
 
 ### Added
+- `.editorconfig` support: Honors `indent_size`, `tab_width`, `end_of_line`, and `insert_final_newline` by walking up the directory tree (fixes #[insert_correct_issue_number]) — thanks @S2zxx0zxx!
 - Line operations bundle: Duplicate (`Alt+D`), Transpose (`Alt+T`), Sort (`Alt+S`/`Alt+Shift+S`), and Case Transform (`Alt+U`/`Alt+L`) for lines and selections (fixes #36) - thanks @tushar-hub!
 
 ## [0.0.3] - 2026-10-06
