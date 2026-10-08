@@ -4,3 +4,4 @@ soft_wrap = true
 show_line_numbers = true
 syntax_highlight = 1
 mouse = true
+git_gutter = true

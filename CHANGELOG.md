@@ -2,9 +2,13 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.4]
+## [0.0.4a02]
 
 ### Added
+- **Git Gutter Markers:** Shows `+` (added), `~` (modified) symbols in the line-number gutter for uncommitted changes vs. HEAD.
+- Enabled via `git_gutter = true` in config (default: disabled).
+- Recomputes every 1 second while idle; fails silently outside git repos.
+- Pure stdlib implementation using `subprocess` + `git diff -U0`.
 - `.editorconfig` support: Honors `indent_size`, `tab_width`, `end_of_line`, and `insert_final_newline` by walking up the directory tree (fixes #[insert_correct_issue_number]) — thanks @S2zxx0zxx!
 - Line operations bundle: Duplicate (`Alt+D`), Transpose (`Alt+T`), Sort (`Alt+S`/`Alt+Shift+S`), and Case Transform (`Alt+U`/`Alt+L`) for lines and selections (fixes #36) - thanks @tushar-hub!
 

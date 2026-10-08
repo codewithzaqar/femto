@@ -110,6 +110,7 @@ class Config:
         self.system_clipboard = False
         self.autosave_seconds = 30
         self.restore_session = True
+        self.git_gutter = False  # NEW: disabled by default
         self.load()
 
     def load(self):
@@ -192,5 +193,7 @@ class Config:
                             self.autosave_seconds = int(val)
                         elif key == "restore_session":
                             self.restore_session = val.lower() in ("true", "1", "yes")
+                        elif key == "git_gutter":
+                            self.git_gutter = val.lower() in ("true", "1", "yes")
         except Exception:
             pass

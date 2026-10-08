@@ -6,6 +6,9 @@ via highlight_line(line, entering_state) and cached per buffer in
 `_highlight_caches`, keyed by buffer identity + revision + filename.
 Caches are released explicitly (release_buffer) AND automatically when
 the Buffer object is garbage-collected (weakref.finalize).
+
+Git gutter markers (v0.0.4a02): shows +/~/- symbols in the line-number
+gutter for uncommitted changes vs. HEAD.
 """
 
 import curses
@@ -45,6 +48,7 @@ class Renderer:
         self.match_attr = curses.A_REVERSE | curses.A_BOLD
         self.all_match_attr = curses.A_UNDERLINE
         self.gutter_attr = curses.A_BOLD
+        self.git_marker_attr = curses.A_BOLD | curses.color_pair(3) if False else curses.A_BOLD
         self._last_sig = None
         self._chunk_cache = {}
         self._hard_cache = {}
@@ -72,6 +76,7 @@ class Renderer:
             self.prompt_attr = curses.color_pair(2) | curses.A_BOLD
             self.match_attr = curses.color_pair(2)
             self.gutter_attr = curses.color_pair(7) | curses.A_BOLD
+            self.git_marker_attr = curses.color_pair(3) | curses.A_BOLD
         except curses.error:
             pass
 
@@ -172,14 +177,15 @@ class Renderer:
 
     # ── text area ─────────────────────────────────────────────
     def draw_text(self, buffer, cursor, screen_rows, screen_cols,
-                  sel=None, match=None, all_matches=None):
+                  sel=None, match=None, all_matches=None, git_markers=None):
         gutter_width = (len(str(len(buffer.lines))) + 1
                         if self.config.show_line_numbers else 0)
         text_cols = max(1, screen_cols - gutter_width)
 
         if not self.config.soft_wrap:
             self._draw_text_hard(buffer, cursor, screen_rows, text_cols,
-                                 sel, match, all_matches, gutter_width)
+                                 sel, match, all_matches, gutter_width,
+                                 git_markers)
             return
 
         visual_row = 0
@@ -193,8 +199,16 @@ class Renderer:
                     return
                 draw_y = visual_row - cursor.scroll_y
                 if self.config.show_line_numbers:
+                    # Git marker for soft-wrap (only on first chunk of line)
+                    marker = ''
+                    if git_markers and i == 0 and (y + 1) in git_markers:
+                        marker = git_markers[y + 1]
+                    
                     if i == 0:
-                        num = str(y + 1).rjust(gutter_width - 1) + " "
+                        if marker:
+                            num = marker + str(y + 1).rjust(gutter_width - 2) + " "
+                        else:
+                            num = str(y + 1).rjust(gutter_width - 1) + " "
                         self._safe_addstr(draw_y, 0, num, self.gutter_attr)
                     else:
                         self._safe_addstr(draw_y, 0, " " * gutter_width)
@@ -218,13 +232,23 @@ class Renderer:
             visual_row += 1
 
     def _draw_text_hard(self, buffer, cursor, screen_rows, text_cols,
-                        sel, match, all_matches, gutter_width):
+                        sel, match, all_matches, gutter_width, git_markers=None):
         for row in range(screen_rows):
             y = row + cursor.scroll_y
             if self.config.show_line_numbers:
                 if y < len(buffer.lines):
-                    num = str(y + 1).rjust(gutter_width - 1) + " "
-                    self._safe_addstr(row, 0, num, self.gutter_attr)
+                    # Check for git marker
+                    marker = ''
+                    if git_markers and (y + 1) in git_markers:
+                        marker = git_markers[y + 1]
+                    
+                    if marker:
+                        # Draw marker + line number (adjusted spacing)
+                        num = marker + str(y + 1).rjust(gutter_width - 2) + " "
+                        self._safe_addstr(row, 0, num, self.git_marker_attr)
+                    else:
+                        num = str(y + 1).rjust(gutter_width - 1) + " "
+                        self._safe_addstr(row, 0, num, self.gutter_attr)
                 else:
                     self._safe_addstr(row, 0, " " * gutter_width)
             if y < len(buffer.lines):
@@ -297,7 +321,7 @@ class Renderer:
             status += f"  | {message}"
         self._draw_bar(screen_rows, status, screen_cols, self.bar_attr)
         self._draw_bar(screen_rows + 1,
-                       "^X Exit  ^S Save  ^W Find  ^K Cut  ^U Paste  "
+                       "^X Exit  ^S Save  ^W Find  ^K Cut  ^C/^V Copy/Paste  "
                        "^F/^L Buf  F1 Help", screen_cols, self.bar_attr)
 
     def draw_prompt(self, prompt, screen_rows, screen_cols, help_text=""):
@@ -388,7 +412,8 @@ class Renderer:
     def render(self, buffer, cursor, message="", prompt=None, mode="normal",
                selection=None, mark_set=False, match=None,
                all_matches=None, keybindings=None,
-               doc_index=0, doc_count=1, help_scroll_y=0):
+               doc_index=0, doc_count=1, help_scroll_y=0,
+               git_markers=None):
         screen_rows, screen_cols = self.get_dimensions()
 
         if mode == "help":
@@ -410,6 +435,7 @@ class Renderer:
             if all_matches else None,
             (prompt.label, prompt.text, prompt.cursor_pos)
             if prompt and prompt.active else None,
+            frozenset(git_markers.items()) if git_markers else None,
         )
         if sig == self._last_sig:
             return
@@ -421,7 +447,7 @@ class Renderer:
             pass
 
         self.draw_text(buffer, cursor, screen_rows, screen_cols,
-                       selection, match, all_matches)
+                       selection, match, all_matches, git_markers)
 
         if prompt and prompt.active and mode in self._PROMPT_HELP:
             self.draw_prompt(prompt, screen_rows, screen_cols,

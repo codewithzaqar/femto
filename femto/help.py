@@ -49,6 +49,9 @@ KEYBINDINGS = {
         ("^N", "Toggle line numbers"),
         ("^Q", "Toggle mouse support"),
     ],
+    "Git Integration": [
+        ("config: git_gutter", "Show +/-/~ markers for uncommitted changes"),
+    ],
     "Mouse": [
         ("Wheel", "Scroll viewport"),
         ("Click", "Move cursor to point"),

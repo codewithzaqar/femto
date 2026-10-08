@@ -20,6 +20,7 @@ from femto.swap import write_swap, read_swap, delete_swap
 from femto.session import save_session, load_session
 from femto.sysclip import copy_to_system, paste_from_system
 from femto.layout import get_logical_from_visual_point
+from femto.gitgutter import get_git_diff_markers
 
 
 class Mode(Enum):
@@ -55,6 +56,8 @@ class Application:
         self.last_swap_time = time.time()
         self._replace_term = ""
         self.renderer = Renderer(stdscr, self.config) if stdscr else None
+        self.git_markers = {}
+        self.last_git_check = 0
 
         if initial_files:
             for f in initial_files:
@@ -173,6 +176,8 @@ class Application:
                                       self.config.soft_wrap)
 
     def render(self):
+        self._refresh_git_markers()  # <-- ADD THIS LINE
+        
         sel = (self.selection.bounds(self.buffer, self.cursor.x, self.cursor.y)
                if self.selection.active else None)
         self.renderer.render(
@@ -182,7 +187,9 @@ class Application:
             match=self.last_match, all_matches=self.all_matches,
             keybindings=KEYBINDINGS if self.mode == Mode.HELP else None,
             doc_index=self.current, doc_count=len(self.documents),
-            help_scroll_y=self.help_scroll_y)
+            help_scroll_y=self.help_scroll_y,
+            git_markers=self.git_markers  # <-- ADD THIS PARAMETER
+        )
 
     def _tick_autosave(self):
         if self.config.autosave_seconds > 0 and \
@@ -432,6 +439,21 @@ class Application:
             self.prompt.insert(ch)
             self._prompt_changed()
             return
+
+    def _refresh_git_markers(self):
+        """Refresh git diff markers if enough time has passed (1s debounce)."""
+        if not self.config.git_gutter:
+            return
+        
+        now = time.time()
+        if now - self.last_git_check < 1.0:
+            return
+        
+        if self.buffer.filename and os.path.exists(self.buffer.filename):
+            self.git_markers = get_git_diff_markers(self.buffer.filename)
+            self.last_git_check = now
+        else:
+            self.git_markers = {}
 
     def _refresh_prompt_flags(self):
         base = self.prompt.label.split(" [")[0]
