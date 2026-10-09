@@ -321,7 +321,7 @@ class Renderer:
             status += f"  | {message}"
         self._draw_bar(screen_rows, status, screen_cols, self.bar_attr)
         self._draw_bar(screen_rows + 1,
-                       "^X Exit  ^S Save  ^W Find  ^K Cut  ^C/^V Copy/Paste  "
+                       "^X Exit  ^S Save  ^W Find  ^K Cut  ^P/^U Copy/Paste  "
                        "^F/^L Buf  F1 Help", screen_cols, self.bar_attr)
 
     def draw_prompt(self, prompt, screen_rows, screen_cols, help_text=""):

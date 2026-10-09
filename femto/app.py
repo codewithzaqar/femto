@@ -111,6 +111,10 @@ class Application:
         except AttributeError:
             key = self.stdscr.getch()
 
+        # Mouse events pass through untouched, immediately
+        if isinstance(key, int) and key == curses.KEY_MOUSE:
+            return key
+
         # Backspace: normalize all variants
         if key in (8, 127, '\x7f', '\x08'):
             return curses.KEY_BACKSPACE
@@ -159,6 +163,11 @@ class Application:
 
     # ── main loop / render ────────────────────────────────────
     def main_loop(self):
+        if self.config.mouse and self.stdscr:
+            try:
+                curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
+            except curses.error:
+                pass
         self.stdscr.timeout(1000)
         while self.running:
             self.render()
@@ -707,22 +716,22 @@ class Application:
     def _handle_mouse(self):
         try:
             _, mx, my, _, bstate = curses.getmouse()
-            if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED):
-                gutter = (len(str(len(self.buffer.lines))) + 1
-                          if self.config.show_line_numbers else 0)
-                text_cols = self._get_text_cols()
-                vis_y = my + self.cursor.scroll_y
-                vis_x = max(0, mx - gutter)
-                if self.config.soft_wrap:
-                    x, y = get_logical_from_visual_point(
-                        vis_y, vis_x, self.buffer.lines, text_cols
-                    )
-                    self.cursor.set_pos(x, y, self.buffer.get_line_length, self.buffer.max_y)
-                else:
-                    x = vis_x + self.cursor.scroll_x
-                    self.cursor.set_pos(x, vis_y, self.buffer.get_line_length, self.buffer.max_y)
         except curses.error:
-            pass
+            return
+        if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED |
+                     getattr(curses, 'BUTTON1_DOUBLE_CLICKED', 0)):
+            gutter = (len(str(len(self.buffer.lines))) + 1
+                      if self.config.show_line_numbers else 0)
+            text_cols = self._get_text_cols()
+            vis_y = my + self.cursor.scroll_y
+            vis_x = max(0, mx - gutter)
+            if self.config.soft_wrap:
+                x, y = get_logical_from_visual_point(
+                    vis_y, vis_x, self.buffer.lines, text_cols)
+                self.cursor.set_pos(x, y, self.buffer.get_line_length, self.buffer.max_y)
+            else:
+                x = vis_x + self.cursor.scroll_x
+                self.cursor.set_pos(x, vis_y, self.buffer.get_line_length, self.buffer.max_y)
 
 
 # ── entry point ───────────────────────────────────────────────
@@ -749,7 +758,11 @@ def main():
 
     def run(stdscr):
         try:
-            stdscr.raw()   # deliver all control chars as keys on every OS
+            stdscr.keypad(True)          # required for KEY_MOUSE delivery
+        except curses.error:
+            pass
+        try:
+            stdscr.raw()
         except curses.error:
             pass
         if cfg.mouse:
