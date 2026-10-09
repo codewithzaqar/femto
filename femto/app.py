@@ -718,6 +718,15 @@ class Application:
             _, mx, my, _, bstate = curses.getmouse()
         except curses.error:
             return
+
+        # ── Mouse wheel: scroll 3 lines per notch ──
+        if bstate & getattr(curses, 'BUTTON4_PRESSED', 0):
+            self._wheel(-3)   # wheel up
+            return
+        if bstate & getattr(curses, 'BUTTON5_PRESSED', 0):
+            self._wheel(3)    # wheel down
+            return
+
         if bstate & (curses.BUTTON1_CLICKED | curses.BUTTON1_PRESSED |
                      getattr(curses, 'BUTTON1_DOUBLE_CLICKED', 0)):
             gutter = (len(str(len(self.buffer.lines))) + 1
@@ -733,6 +742,16 @@ class Application:
                 x = vis_x + self.cursor.scroll_x
                 self.cursor.set_pos(x, vis_y, self.buffer.get_line_length, self.buffer.max_y)
 
+    def _wheel(self, dy):
+        """Scroll by moving the cursor |dy| lines; update_scroll follows."""
+        steps = abs(dy)
+        for _ in range(steps):
+            if dy < 0:
+                self.cursor.move_up(self.buffer, self.config.soft_wrap,
+                                    self._get_text_cols())
+            else:
+                self.cursor.move_down(self.buffer, self.config.soft_wrap,
+                                      self._get_text_cols())
 
 # ── entry point ───────────────────────────────────────────────
 def main():
