@@ -400,6 +400,46 @@ class Renderer:
         except curses.error:
             pass
 
+    def draw_grep_results(self, screen_rows, screen_cols,
+                    grep_results, grep_current):
+        """Draw grep results list."""
+        try:
+            self.stdscr.erase()
+        except curses.error:
+            pass
+
+        self._draw_bar(0, " Grep Results - Enter to open, Esc/q to close ",
+                screen_cols, self.bar_attr)
+
+        if not grep_results:
+            self._safe_addstr(2, 2, "No matches found.")
+        else:
+            # Calculate visible range
+            visible_start = max(0, grep_current - screen_rows // 2)
+            visible_end = min(len(grep_results), visible_start + screen_rows - 2)
+
+            for i in range(visible_start, visible_end):
+                row = i - visible_start + 1
+                filepath, line_num, line_text = grep_results[i]
+
+                # Highlight current selection
+                attr = curses.A_REVERSE if i == grep_current else 0
+
+                # Format: filepath:line_num: line_text
+                display = f"{filepath}:{line_num}: {line_text[:screen_cols - 30]}"
+                self._safe_addstr(row, 0, display[:screen_cols], attr)
+
+        # Help bar
+        self._draw_bar(screen_rows - 1,
+                f" {grep_current + 1}/{len(grep_results)} "
+                "Up/Down navigate Enter open Esc/q close",
+                screen_cols, self.bar_attr)
+
+        try:
+            self.stdscr.refresh()
+        except curses.error:
+            pass
+
     _PROMPT_HELP = {
         "save_as": "Enter Save    Tab Complete    ^G Cancel",
         "search": "Enter Find Next    ^O Case    ^R Regex    ^G Cancel",
@@ -413,12 +453,17 @@ class Renderer:
                selection=None, mark_set=False, match=None,
                all_matches=None, keybindings=None,
                doc_index=0, doc_count=1, help_scroll_y=0,
-               git_markers=None):
+               git_markers=None, grep_results=None, grep_current=None):
         screen_rows, screen_cols = self.get_dimensions()
 
         if mode == "help":
             self.draw_help_screen(screen_rows, screen_cols,
                                   help_scroll_y, keybindings)
+            return
+
+        if mode == "grep":
+            self.draw_grep_results(screen_rows, screen_cols,
+                        grep_results, grep_current)
             return
 
         sig = (

@@ -21,6 +21,7 @@ from femto.session import save_session, load_session
 from femto.sysclip import copy_to_system, paste_from_system
 from femto.layout import get_logical_from_visual_point
 from femto.gitgutter import get_git_diff_markers
+from femto.grep import grep_directory
 
 
 class Mode(Enum):
@@ -33,6 +34,7 @@ class Mode(Enum):
     EXIT_CONFIRM = auto()
     REPLACE_CONFIRM = auto()
     HELP = auto()
+    GREP = auto()
 
 
 class Application:
@@ -58,6 +60,8 @@ class Application:
         self.renderer = Renderer(stdscr, self.config) if stdscr else None
         self.git_markers = {}
         self.last_git_check = 0
+        self.grep_results = []
+        self.grep_current = 0
 
         if initial_files:
             for f in initial_files:
@@ -197,7 +201,9 @@ class Application:
             keybindings=KEYBINDINGS if self.mode == Mode.HELP else None,
             doc_index=self.current, doc_count=len(self.documents),
             help_scroll_y=self.help_scroll_y,
-            git_markers=self.git_markers  # <-- ADD THIS PARAMETER
+            git_markers=self.git_markers,
+            grep_results=self.grep_results if self.mode == Mode.GREP else None,
+            grep_current=self.grep_current if self.mode == Mode.GREP else None
         )
 
     def _tick_autosave(self):
@@ -215,6 +221,8 @@ class Application:
             self._handle_normal(key, screen_rows, screen_cols)
         elif self.mode == Mode.HELP:
             self._handle_help(key, screen_rows, screen_cols)
+        elif self.mode == Mode.GREP:
+            self._handle_grep (key, screen_rows, screen_cols)
         elif self.mode in (Mode.SEARCH, Mode.REPLACE_SEARCH,
                            Mode.REPLACE_WITH, Mode.SAVE_AS, Mode.GOTO_LINE):
             self._handle_prompt(key, screen_rows, screen_cols)
@@ -449,6 +457,16 @@ class Application:
             self._prompt_changed()
             return
 
+        # In search mode, ^E triggers project-wide grep
+        if self.mode == Mode.SEARCH and k == 5: # ^E
+            pattern = self.prompt.text
+            if pattern:
+                self.prompt.clear()
+                self.mode = Mode.NORMAL
+                self._execute_grep(pattern, os.getcwd())
+                self.mode = Mode.GREP
+            return
+
     def _refresh_git_markers(self):
         """Refresh git diff markers if enough time has passed (1s debounce)."""
         if not self.config.git_gutter:
@@ -592,6 +610,45 @@ class Application:
             self.all_matches, self.last_match = [], None
         self.mode = Mode.NORMAL
         self.prompt.clear()
+
+    def _grep_project(self):
+        """Enter project-wide grep mode."""
+        self.mode = Mode.GREP
+        self.prompt.start("Grep in", os.getcwd())
+
+    def _handle_grep(self, key, screen_rows=24, screen_cols=80):
+        """Handle input in grep results view."""
+        if key == 27 or (isinstance(key, str) and key.lower() == 'q'):
+            self.mode = Mode.NORMAL
+        elif key == curses.KEY_UP:
+            self.grep_current = max(0, self.grep_current - 1)
+        elif key == curses.KEY_DOWN:
+            self.grep_current = min(len(self.grep_results) - 1, self.grep_current + 1)
+        elif key == curses.KEY_PPAGE:
+            self.grep_current = max(0, self.grep_current - screen_rows)
+        elif key == curses.KEY_NPAGE:
+            self.grep_current = min(len(self.grep_results) - 1,
+                        self.grep_current + screen_rows)
+        elif is_enter(key) or (isinstance(key, int) and key in (10, 13)):
+            if self.grep_results:
+                filepath, line_num, _ = self.grep_results[self.grep_current]
+                root = os.getcwd()
+                full_path = os.path.join(root, filepath)
+                if os.path.exists(full_path):
+                    self.open_file(full_path)
+                    self.cursor.set_pos(0, line_num - 1,
+                                self.buffer.get_line_length, self.buffer.max_y)
+                    self.mode = Mode.NORMAL
+
+    def _execute_grep(self, pattern, root_dir):
+        """Execute grep and store results."""
+        self.grep_results = grep_directory(root_dir, pattern,
+                                self.search_options.ignore_case)
+        self.grep_current = 0 
+        if self.grep_results:
+            self.message = f"Found {len(self.grep_results)} matches"
+        else:
+            self.message = f"No matches for: {pattern}"
 
     # ── help ──────────────────────────────────────────────────
     def _enter_help(self):

@@ -2,9 +2,14 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.4a02]
+## [0.0.4a03]
 
 ### Added
+- **Project-Wide Grep:** Search across all files in the current directory tree.
+- Trigged via `^W` (search) then `^E` (everywhere).
+- Respects common ignore patterns (.git, __pycache__, node_modules).
+- Navigate results with arrow keys, Enter to open file at match.
+- Pure stdlib implementation using `os.walk` + `re`.
 - **Git Gutter Markers:** Shows `+` (added), `~` (modified) symbols in the line-number gutter for uncommitted changes vs. HEAD.
 - Enabled via `git_gutter = true` in config (default: disabled).
 - Recomputes every 1 second while idle; fails silently outside git repos.

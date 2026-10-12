@@ -39,10 +39,12 @@ KEYBINDINGS = {
         ("^V / ^U", "Paste clipboard"),
     ],
     "Search & Replace": [
-        ("^W", "Search / find next"),
+        ("^W", "Search in current buffer"),
+        ("^W then ^E", "Search across all files in directory (grep)"),
+        ("^O / ^R", "Toggle case-insensitive / regex in search"),
+        ("Enter", "Jump to next match"),
+        ("^G / Esc", "Cancel search"),
         ("^\\", "Replace flow"),
-        ("^O", "Toggle case-insensitive (in prompt)"),
-        ("^R", "Toggle regex (in prompt)"),
     ],
     "Buffers & View": [
         ("^F / ^L", "Next / previous buffer"),
