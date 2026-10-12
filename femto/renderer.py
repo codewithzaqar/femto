@@ -12,7 +12,9 @@ gutter for uncommitted changes vs. HEAD.
 """
 
 import curses
+import os
 import weakref
+from femto.theme import load_theme, nearest_xterm_256, xterm_256_rgb
 from femto import __version__, __app_name__
 from femto.layout import chunk_line, get_visual_position
 
@@ -48,39 +50,130 @@ class Renderer:
         self.match_attr = curses.A_REVERSE | curses.A_BOLD
         self.all_match_attr = curses.A_UNDERLINE
         self.gutter_attr = curses.A_BOLD
-        self.git_marker_attr = curses.A_BOLD | curses.color_pair(3) if False else curses.A_BOLD
+        self.git_marker_attr = curses.A_BOLD
         self._last_sig = None
         self._chunk_cache = {}
         self._hard_cache = {}
         self._highlight_caches = {}
         self.setup_colors()
 
+
     def setup_colors(self):
         if BAR_STYLE != "color":
             return
+
         try:
             curses.start_color()
+
             try:
                 curses.use_default_colors()
-                bg = -1
+                default_fg = -1
+                default_bg = -1
             except curses.error:
-                bg = curses.COLOR_BLACK
-            curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)
-            curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_YELLOW)
-            curses.init_pair(3, curses.COLOR_GREEN, bg)
-            curses.init_pair(4, curses.COLOR_MAGENTA, bg)
-            curses.init_pair(5, curses.COLOR_CYAN, bg)
-            curses.init_pair(6, curses.COLOR_YELLOW, bg)
-            curses.init_pair(7, curses.COLOR_BLUE, bg)
-            curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_RED) # NEW: Trailing WS
+                default_fg = curses.COLOR_WHITE
+                default_bg = curses.COLOR_BLACK
 
-            self.bar_attr = curses.color_pair(1)
-            self.prompt_attr = curses.color_pair(2) | curses.A_BOLD
-            self.match_attr = curses.color_pair(2)
-            self.gutter_attr = curses.color_pair(7) | curses.A_BOLD
-            self.git_marker_attr = curses.color_pair(3) | curses.A_BOLD
-            self.trailing_ws_attr = curses.color_pair(8)
-        except curses.error:
+            theme = load_theme(getattr(self.config, "theme", "default"))
+            available_colors = min(curses.COLORS, 256)
+
+            if available_colors < 1 or curses.COLOR_PAIRS <= 11:
+                return
+
+            truecolor = (
+                os.environ.get("COLORTERM", "").lower()
+                in ("truecolor", "24bit")
+                and curses.can_change_color()
+            )
+
+            color_cache = {}
+            next_color = 8
+
+            def resolve_rgb(rgb):
+                nonlocal next_color
+
+                if rgb in color_cache:
+                    return color_cache[rgb]
+
+                if truecolor and next_color < available_colors:
+                    color_id = next_color
+                    next_color += 1
+                    red, green, blue = rgb
+                    curses.init_color(
+                        color_id,
+                        round(red * 1000 / 255),
+                        round(green * 1000 / 255),
+                        round(blue * 1000 / 255),
+                    )
+                elif available_colors >= 256:
+                    color_id = nearest_xterm_256(rgb)
+                else:
+                    color_id = min(
+                        range(available_colors),
+                        key=lambda index: sum(
+                            (component - palette_component) ** 2
+                            for component, palette_component in zip(
+                                rgb, xterm_256_rgb(index)
+                            )
+                        ),
+                    )
+
+                color_cache[rgb] = color_id
+                return color_id
+
+            def resolve_color(value, is_background=False):
+                if value is None:
+                    return default_bg if is_background else default_fg
+
+                if isinstance(value, int):
+                    if value < available_colors:
+                        return value
+                    value = xterm_256_rgb(value)
+
+                return resolve_rgb(value)
+
+            pair_sections = {
+                1: "status_bar",
+                2: "prompt",
+                3: "comment",
+                4: "string",
+                5: "keyword",
+                6: "number",
+                7: "gutter",
+                8: "git_marker",
+                9: "selection",
+                10: "match",
+            }
+
+            pair_attrs = {}
+
+            for pair_id, section in pair_sections.items():
+                colors = theme.get(section, {})
+                foreground = resolve_color(colors.get("foreground"))
+                background = resolve_color(
+                    colors.get("background"), is_background=True
+                )
+                curses.init_pair(pair_id, foreground, background)
+                pair_attrs[section] = curses.color_pair(pair_id)
+
+            self.trailing_ws_attr = pair_attrs["match"]
+
+            self.bar_attr = pair_attrs["status_bar"]
+            self.prompt_attr = pair_attrs["prompt"] | curses.A_BOLD
+            self.gutter_attr = pair_attrs["gutter"] | curses.A_BOLD
+            self.git_marker_attr = pair_attrs["git_marker"] | curses.A_BOLD
+
+            selection = theme.get("selection", {})
+            if (
+                selection.get("foreground") is None
+                and selection.get("background") is None
+            ):
+                self.sel_attr = curses.A_REVERSE
+            else:
+                self.sel_attr = pair_attrs["selection"]
+
+            self.match_attr = pair_attrs["match"]
+
+        except (curses.error, ValueError, FileNotFoundError):
             pass
 
     def get_dimensions(self):
@@ -225,7 +318,7 @@ class Renderer:
                 # Inject trailing whitespace highlight
                 if self.config.show_trailing_ws and line != line.rstrip():
                     trail_start = len(line.rstrip())
-                    highlights.append((trail_start, len(line), 8))
+                    highlights.append((trail_start, len(line), 10))
 
                 logical_x0 = sum(len(c) for c in chunks[:i])
                 self._draw_chunk(draw_y, chunk, logical_x0, y, sel, match,
@@ -269,7 +362,7 @@ class Renderer:
                 line = buffer.lines[y]
                 if self.config.show_trailing_ws and line != line.rstrip():
                     trail_start = len(line.rstrip())
-                    highlights.append((trail_start, len(line), 8))
+                    highlights.append((trail_start, len(line), 10))
 
                 self._draw_chunk(row, chunk, x0, y, sel, match, all_matches,
                                  highlights, gutter_width)

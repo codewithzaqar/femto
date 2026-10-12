@@ -157,6 +157,7 @@ class TestConfig(unittest.TestCase):
                 "final_newline = false\n"
                 "auto_indent = false\n"
                 "mouse = true\n"
+                "theme = solarized-dark\n"
             )
             path = fh.name
         try:
@@ -168,6 +169,7 @@ class TestConfig(unittest.TestCase):
             self.assertFalse(cfg.final_newline)
             self.assertFalse(cfg.auto_indent)
             self.assertTrue(cfg.mouse)
+            self.assertEqual(cfg.theme, "solarized-dark")
         finally:
             os.unlink(path)
 

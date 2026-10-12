@@ -33,3 +33,6 @@ Homepage = "https://github.com/codewithzaqar/femto"
 
 [tool.setuptools]
 packages = ["femto"]
+
+[tool.setuptools.package-data]
+femto = ["themes/*.ini"]
