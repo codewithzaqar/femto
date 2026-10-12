@@ -72,11 +72,14 @@ class Renderer:
             curses.init_pair(5, curses.COLOR_CYAN, bg)
             curses.init_pair(6, curses.COLOR_YELLOW, bg)
             curses.init_pair(7, curses.COLOR_BLUE, bg)
+            curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_RED) # NEW: Trailing WS
+
             self.bar_attr = curses.color_pair(1)
             self.prompt_attr = curses.color_pair(2) | curses.A_BOLD
             self.match_attr = curses.color_pair(2)
             self.gutter_attr = curses.color_pair(7) | curses.A_BOLD
             self.git_marker_attr = curses.color_pair(3) | curses.A_BOLD
+            self.trailing_ws_attr = curses.color_pair(8)
         except curses.error:
             pass
 
@@ -218,6 +221,12 @@ class Renderer:
                 except curses.error:
                     pass
                 highlights = self._highlights_for(buffer, y)
+
+                # Inject trailing whitespace highlight
+                if self.config.show_trailing_ws and line != line.rstrip():
+                    trail_start = len(line.rstrip())
+                    highlights.append((trail_start, len(line), 8))
+
                 logical_x0 = sum(len(c) for c in chunks[:i])
                 self._draw_chunk(draw_y, chunk, logical_x0, y, sel, match,
                                  all_matches, highlights, gutter_width)
@@ -255,6 +264,13 @@ class Renderer:
                 x0 = cursor.scroll_x
                 chunk = buffer.lines[y][x0:x0 + text_cols]
                 highlights = self._highlights_for(buffer, y)
+                
+                # Inject trailing whitespace highlight
+                line = buffer.lines[y]
+                if self.config.show_trailing_ws and line != line.rstrip():
+                    trail_start = len(line.rstrip())
+                    highlights.append((trail_start, len(line), 8))
+
                 self._draw_chunk(row, chunk, x0, y, sel, match, all_matches,
                                  highlights, gutter_width)
             else:

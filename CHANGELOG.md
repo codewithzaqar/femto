@@ -2,9 +2,13 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.4a03]
+## [0.0.4a04]
 
 ### Added
+- **Whitespace Hygiene**
+- Visual highlighting of trailing spaces and tabs (red background) via `show_trailing_ws` config (default: true).
+- Auto-trimming of trailing whitespace on save via `trim_on_save` config (default: false).
+- Cursor automatically clamps to the new line end if it was sitting inside trimmed whitespace.
 - **Project-Wide Grep:** Search across all files in the current directory tree.
 - Trigged via `^W` (search) then `^E` (everywhere).
 - Respects common ignore patterns (.git, __pycache__, node_modules).

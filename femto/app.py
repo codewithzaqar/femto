@@ -650,6 +650,23 @@ class Application:
         else:
             self.message = f"No matches for: {pattern}"
 
+    def _trim_trailing_whitespace(self):
+        """Strip trailing whitespace from all lines in the buffer."""
+        self._snapshot()
+        changed = False
+        for i in range(len(self.buffer.lines)):
+            stripped = self.buffer.lines[i].rstrip()
+            if stripped != self.buffer.lines[i]:
+                self.buffer.lines[i] = stripped
+                changed = True
+
+        if changed:
+            # Clamp cursor if it was sitting inside the trimmed whitespace
+            self.cursor.x = min(self.cursor.x, len(self.buffer.lines[self.cursor.y]))
+            self.buffer.touch()
+            return True
+        return False
+
     # ── help ──────────────────────────────────────────────────
     def _enter_help(self):
         self.mode = Mode.HELP
@@ -675,6 +692,16 @@ class Application:
             self.mode = Mode.SAVE_AS
             self.prompt.start("Save As", "")
             return
+
+        # Auto-trim trailing whitespace if configured
+        if self.config.trim_on_save:
+            if self._trim_trailing_whitespace():
+                self.message = "Trimmed trailing whitespace."
+            else:
+                self.message = ""
+        else:
+            self.message = ""
+
         if self.buffer.save():
             delete_swap(self.buffer.filename)
             self.message = f"Saved {self.buffer.filename}"

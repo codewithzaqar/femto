@@ -110,7 +110,9 @@ class Config:
         self.system_clipboard = False
         self.autosave_seconds = 30
         self.restore_session = True
-        self.git_gutter = False  # NEW: disabled by default
+        self.git_gutter = False
+        self.show_trailing_ws = True
+        self.trim_on_save = False
         self.load()
 
     def load(self):
@@ -195,5 +197,9 @@ class Config:
                             self.restore_session = val.lower() in ("true", "1", "yes")
                         elif key == "git_gutter":
                             self.git_gutter = val.lower() in ("true", "1", "yes")
+                        elif key == "show_trailing_ws":
+                            self.show_trailing_ws = val.lower() in ("true", "1", "yes")
+                        elif key == "trim_on_save":
+                            self.trim_on_save = val.lower() in ("true", "1", "yes")
         except Exception:
             pass

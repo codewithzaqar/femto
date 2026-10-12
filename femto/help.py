@@ -24,6 +24,8 @@ KEYBINDINGS = {
         ("^O / ^R", "Sort selection (case-sensitive / ignore case)"),
         ("^A / ^G", "Upper-case / lower-case selection"),
         ("Alt+D/T/S/U/L", "Legacy aliases for the line ops above"),
+        ("config: trim_on_save", "Auto-strip trailing whitespace on ^S"),
+        ("config: show_trailing_ws", "Highlight trailing spaces/tabs in red"),
     ],
     "Navigation": [
         ("Arrows", "Move cursor"),
