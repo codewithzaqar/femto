@@ -157,6 +157,9 @@ The tables and help share `KEYBINDINGS` in `femto/help.py`. When changing shortc
 Femto is highly customizable via a simple `key = value` configuration file.
 
 ```ini
+# Colors
+theme = default
+
 # Indentation
 tab_size = 4
 
@@ -184,6 +187,8 @@ make_backup = false
 line_ending = auto
 final_newline = true  # ensure POSIX trailing newline
 ```
+
+Femto includes five built-in color themes: `default`, `default-light`, `solarized-dark`, `solarized-light`, and `high-contrast`. Set `theme` in your configuration file to choose one.
 
 ## Running the tests
 

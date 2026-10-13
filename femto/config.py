@@ -113,6 +113,7 @@ class Config:
         self.git_gutter = False
         self.show_trailing_ws = True
         self.trim_on_save = False
+        self.theme = "default"
         self.load()
 
     def load(self):
@@ -201,5 +202,7 @@ class Config:
                             self.show_trailing_ws = val.lower() in ("true", "1", "yes")
                         elif key == "trim_on_save":
                             self.trim_on_save = val.lower() in ("true", "1", "yes")
+                        elif key == "theme":
+                            self.theme = val
         except Exception:
             pass
