@@ -5,6 +5,11 @@ All notable changes to Femto are documented in this file.
 ## [0.0.4a04]
 
 ### Added
+- **Configurable Color Themes:** Five built-in themes (default, default-light, 
+     solarized-dark, solarized-light, high-contrast) loaded from `femto/themes/*.ini` files.
+     - RGB colors with xterm-256 fallback for universal terminal compatibility.
+     - Config flag: `theme = default`.
+     - Closes #38 — thanks @drathava847-beep!
 - **Whitespace Hygiene**
 - Visual highlighting of trailing spaces and tabs (red background) via `show_trailing_ws` config (default: true).
 - Auto-trimming of trailing whitespace on save via `trim_on_save` config (default: false).
