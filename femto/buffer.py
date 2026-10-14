@@ -67,6 +67,17 @@ class Buffer:
 
         if filepath and os.path.exists(filepath):
             try:
+                size = os.path.getsize(filepath)
+                if size > 50 * 1024 * 1024:
+                    size_mb = size / (1024 * 1024)
+                    self.lines = [
+                        f"[Femto] File too large ({size_mb:.1f} MB). Limit is 50 MB."
+                    ]
+                    self.modified = False
+                    self.revision = 0
+                    self.filename = None
+                    return False
+
                 with open(filepath, 'r', encoding='utf-8', newline='') as f:
                     content = f.read()
 
