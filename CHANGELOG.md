@@ -2,29 +2,19 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.4a04]
+## [0.0.4rc1]
 
-### Added
-- **Configurable Color Themes:** Five built-in themes (default, default-light, 
-     solarized-dark, solarized-light, high-contrast) loaded from `femto/themes/*.ini` files.
-     - RGB colors with xterm-256 fallback for universal terminal compatibility.
-     - Config flag: `theme = default`.
-     - Closes #38 — thanks @drathava847-beep!
-- **Whitespace Hygiene**
-- Visual highlighting of trailing spaces and tabs (red background) via `show_trailing_ws` config (default: true).
-- Auto-trimming of trailing whitespace on save via `trim_on_save` config (default: false).
-- Cursor automatically clamps to the new line end if it was sitting inside trimmed whitespace.
-- **Project-Wide Grep:** Search across all files in the current directory tree.
-- Trigged via `^W` (search) then `^E` (everywhere).
-- Respects common ignore patterns (.git, __pycache__, node_modules).
-- Navigate results with arrow keys, Enter to open file at match.
-- Pure stdlib implementation using `os.walk` + `re`.
-- **Git Gutter Markers:** Shows `+` (added), `~` (modified) symbols in the line-number gutter for uncommitted changes vs. HEAD.
-- Enabled via `git_gutter = true` in config (default: disabled).
-- Recomputes every 1 second while idle; fails silently outside git repos.
-- Pure stdlib implementation using `subprocess` + `git diff -U0`.
-- `.editorconfig` support: Honors `indent_size`, `tab_width`, `end_of_line`, and `insert_final_newline` by walking up the directory tree (fixes #[insert_correct_issue_number]) — thanks @S2zxx0zxx!
-- Line operations bundle: Duplicate (`Alt+D`), Transpose (`Alt+T`), Sort (`Alt+S`/`Alt+Shift+S`), and Case Transform (`Alt+U`/`Alt+L`) for lines and selections (fixes #36) - thanks @tushar-hub!
+### Features
+- **Truecolor Themes:** Configurable color themes with RGB fallback to 256-color xterm palette (fixes #38).
+- **Large File Protection:** Files > 50MB are now refused on load with a clear error message, preventing multi-minute UI freezes and RAM exhaustion (fixes #41).
+
+### Community
+Massive thanks to our contributors who made this release cycle possible:
+- `@drathava847-beep` (Truecolor Themes, 50MB Fast-Fail, Search Highlighting, Unicode/Tab Completion)
+- `@tushar-hub` (Line Operations Bundle)
+- `@legendteddy` (Sort Selection Mark Consumption)
+- `@S2zxx0zxx` (.editorconfig Support)
+- `@feliperm17` & `@HarshRajSinghania` (Various v0.0.3 carry-overs)
 
 ## [0.0.3] - 2026-10-06
 
