@@ -102,6 +102,8 @@ class Config:
         self.show_line_numbers = False   
         self.syntax_highlight = True
         self.mouse = False    
+        self.bell = False
+        self.visual_bell = True
         self.make_backup = False
         self.line_ending = 'auto'
         self.final_newline = True
@@ -179,6 +181,10 @@ class Config:
                             self.syntax_highlight = val.lower() in ("true", "1", "yes")
                         elif key == "mouse":
                             self.mouse = val.lower() in ("true", "1", "yes")
+                        elif key == "bell":
+                            self.bell = val.lower() in ("true", "1", "yes")
+                        elif key == "visual_bell":
+                            self.visual_bell = val.lower() in ("true", "1", "yes")
                         elif key == "make_backup":
                             self.make_backup = val.lower() in ("true", "1", "yes")
                         elif key == "line_ending":

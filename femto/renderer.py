@@ -195,6 +195,40 @@ class Renderer:
         except curses.error:
             pass
 
+    def _flash_screen(self):
+        """Invert rendered attributes, preserving text, color pairs and cursor."""
+        position = None
+        try:
+            position = self.stdscr.getyx()
+            rows, cols = self.stdscr.getmaxyx()
+            for row in range(rows):
+                # Read a complete row before changing attributes. This also avoids
+                # toggling the second cell of a wide glyph twice.
+                attrs = [self.stdscr.inch(row, col) & curses.A_ATTRIBUTES
+                         for col in range(cols)]
+                start = 0
+                while start < cols:
+                    end = start + 1
+                    while end < cols and attrs[end] == attrs[start]:
+                        end += 1
+                    self.stdscr.chgat(row, start, end - start,
+                                      attrs[start] ^ curses.A_REVERSE)
+                    start = end
+        except curses.error:
+            # A resize or an unsupported terminal must not interrupt editing.
+            pass
+        finally:
+            if position is not None:
+                self._safe_move(*position)
+
+    def _refresh_screen(self, visual_bell=False):
+        if visual_bell:
+            self._flash_screen()
+        try:
+            self.stdscr.refresh()
+        except curses.error:
+            pass
+
     # ── chunk caches ──────────────────────────────────────────
     def _chunks_for(self, line, width):
         key = (line, width)
@@ -455,7 +489,7 @@ class Renderer:
                            screen_rows, screen_cols)
 
     def draw_help_screen(self, screen_rows, screen_cols, help_scroll_y,
-                         keybindings):
+                         keybindings, visual_bell=False):
         try:
             self.stdscr.erase()
         except curses.error:
@@ -485,10 +519,7 @@ class Renderer:
         self._draw_bar(screen_rows - 1,
                        f" Up/Down scroll   PgUp/PgDn page   Esc/q exit{more}",
                        screen_cols, self.bar_attr)
-        try:
-            self.stdscr.refresh()
-        except curses.error:
-            pass
+        self._refresh_screen(visual_bell)
 
     def _draw_bar(self, row, text, width, attr):
         text = text.ljust(width)[:width]
@@ -510,7 +541,7 @@ class Renderer:
             pass
 
     def draw_grep_results(self, screen_rows, screen_cols,
-                    grep_results, grep_current):
+                    grep_results, grep_current, visual_bell=False):
         """Draw grep results list."""
         try:
             self.stdscr.erase()
@@ -544,10 +575,7 @@ class Renderer:
                 "Up/Down navigate Enter open Esc/q close",
                 screen_cols, self.bar_attr)
 
-        try:
-            self.stdscr.refresh()
-        except curses.error:
-            pass
+        self._refresh_screen(visual_bell)
 
     _PROMPT_HELP = {
         "save_as": "Enter Save    Tab Complete    ^G Cancel",
@@ -562,17 +590,20 @@ class Renderer:
                selection=None, mark_set=False, match=None,
                all_matches=None, keybindings=None,
                doc_index=0, doc_count=1, help_scroll_y=0,
-               git_markers=None, grep_results=None, grep_current=None):
+               git_markers=None, grep_results=None, grep_current=None,
+               visual_bell=False):
         screen_rows, screen_cols = self.get_dimensions()
 
         if mode == "help":
+            self._last_sig = None
             self.draw_help_screen(screen_rows, screen_cols,
-                                  help_scroll_y, keybindings)
+                                  help_scroll_y, keybindings, visual_bell)
             return
 
         if mode == "grep":
+            self._last_sig = None
             self.draw_grep_results(screen_rows, screen_cols,
-                        grep_results, grep_current)
+                        grep_results, grep_current, visual_bell)
             return
 
         sig = (
@@ -590,6 +621,7 @@ class Renderer:
             (prompt.label, prompt.text, prompt.cursor_pos)
             if prompt and prompt.active else None,
             frozenset(git_markers.items()) if git_markers else None,
+            visual_bell,
         )
         if sig == self._last_sig:
             return
@@ -617,7 +649,4 @@ class Renderer:
                                  message, mark_set, doc_index, doc_count)
             self.draw_cursor(cursor, buffer, screen_cols)
 
-        try:
-            self.stdscr.refresh()
-        except curses.error:
-            pass
+        self._refresh_screen(visual_bell)

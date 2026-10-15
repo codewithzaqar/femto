@@ -5,3 +5,7 @@ show_line_numbers = true
 syntax_highlight = 1
 mouse = true
 git_gutter = true
+
+# Error notifications (independent options)
+bell = false
+visual_bell = true
