@@ -1,14 +1,14 @@
-# Femto v0.0.3
-     
+# Femto v0.0.4
+
 Femto is a tiny, nano-style terminal text editor written in **pure Python**.
 It ships with zero runtime dependencies on POSIX system (standard-library `curses` only) and automatically pulls `windows-curses` on Windows.
 
 Femto supports multi-buffer editing, soft line wrapping, syntax highlighting, regex search & replace, mouse support, and is fully Unicode (CJK/Emoji) aware.
 
 <p align="center">
-	<img src="assets/femto-demo.png" alt="Femto v0.0.3 Terminal Editor Demo" width="800">
-	<br>
-	<em>Femto v0.0.3: Featuring the F1 help screen, stateful Python docstring highlighting, word-boundary wrapping, and multi-match search overlays.</em>
+    <img src="assets/femto-demo.png" alt="Femto v0.0.3 Terminal Editor Demo" width="800">
+    <br>
+    <em>Femto v0.0.3: Featuring the F1 help screen, stateful Python docstring highlighting, word-boundary wrapping, and multi-match search overlays.</em>
 </p>
 
 ## Install

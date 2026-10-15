@@ -2,11 +2,34 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.4rc1]
+## [0.0.4] - 2026-10-15
 
 ### Features
-- **Truecolor Themes:** Configurable color themes with RGB fallback to 256-color xterm palette (fixes #38).
-- **Large File Protection:** Files > 50MB are now refused on load with a clear error message, preventing multi-minute UI freezes and RAM exhaustion (fixes #41).
+- **Crash Recovery:** Swap files written to temp directory every 30s; recovery prompt on startup (v0.0.4a01)
+- **Session Restore:** Open buffers and cursor positions persist across restarts (v0.0.4a01)
+- **Git Gutter Markers:** Shows `+`/`~` symbols for uncommitted changes in the line-number gutter (v0.0.4a02)
+- **Project-Wide Grep:** Search across all files with `^W` then `^E` (v0.0.4a03)
+- **Whitespace Hygiene:** Visual trailing whitespace highlighting + auto-trim on save (v0.0.4a04)
+- **Truecolor Themes:** Configurable color themes with RGB -> 256-color fallback for modern terminals
+- **Large File Protection:** Files > 50MB refused with clear error message to prevent UI freeze
+
+### Quality of Life
+- **Universal Ctrl Keys:** `^C`/`^V` for copy/paste, `^D` for duplicate, `^Q` for mouse toggle
+- **Live Search:** Matches highlight as you type, cursor jumps automatically
+- **Mouse Wheel:** Scroll viewport with wheel (3 lines per notch)
+- **Bulletproof Input:** Handles all terminals quirks (getch/get_wch, Alt escape sequences, backspace variants)
+- **`.editorconfig` Support:** Honors `indent_size`, `tab_width`, `end_of_line`, `insert_final_newline`
+
+### Bug Fixes
+- Sort selection now consumes the mark (fixes consecutive sort bug)
+- Cut/copy operations read selection before mutation (fixes highlight cache invalidation)
+- Stateful highlighting correctly tracks lexical state across wrapped and off-screen lines
+- Cursor properly clamps after trailing whitespace trim
+
+### Stats
+- **183 tests** (up from 154 at v0.0.3)
+- **5 external contributors** mentored through complex PRs
+- **Zero external dependencies** (pure stdlib)
 
 ### Community
 Massive thanks to our contributors who made this release cycle possible:
