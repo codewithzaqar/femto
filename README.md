@@ -182,6 +182,8 @@ wrap_at_word = true
 
 # Input & I/O
 mouse = false
+bell = false
+visual_bell = true
 make_backup = false
 # auto keeps the ending detected on load (LF for new files); lf or crlf forces it
 line_ending = auto
@@ -189,6 +191,20 @@ final_newline = true  # ensure POSIX trailing newline
 ```
 
 Femto includes five built-in color themes: `default`, `default-light`, `solarized-dark`, `solarized-light`, and `high-contrast`. Set `theme` in your configuration file to choose one.
+
+### Error notifications
+
+`visual_bell = true` briefly inverts the screen for 100 ms when a search fails,
+a search/replace pattern is invalid, an oversized file is rejected, or a save
+needs a filename, has no changes, or fails. Input remains responsive during the
+flash, and the normal screen is restored even without another keypress.
+
+Set `bell = true` to additionally emit the terminal BEL character (`\a`).
+Whether this produces sound depends on the terminal's settings. Both options
+can be disabled independently. Headless library use does not emit BEL.
+
+An unnamed buffer still opens Save As; an empty filename keeps that prompt open.
+An explicit Save As and creating a new, empty named file are still supported.
 
 ## Running the tests
 

@@ -3,7 +3,9 @@ Main application loop and input routing for Femto.
 """
 
 import curses
+import math
 import os
+import re
 import sys
 import time
 from enum import Enum, auto
@@ -47,6 +49,8 @@ class Application:
         self.selection = Selection()
         self.prompt = Prompt()
         self.message = ""
+        self._visual_bell_until = 0.0
+        self._last_render_was_flash = False
         self.mode = Mode.NORMAL
         self.running = True
         self.last_match = None
@@ -94,8 +98,46 @@ class Application:
         self.current = len(self.documents) - 1
 
     def open_file(self, filepath):
-        self.documents.append(Document(self.config, filepath))
+        document = Document(self.config, filepath)
+        self.documents.append(document)
         self.current = len(self.documents) - 1
+        if document.load_failed:
+            self._notify_error(document.buffer.lines[0])
+
+    @property
+    def visual_bell_active(self):
+        return (self.config.visual_bell
+                and time.monotonic() < self._visual_bell_until)
+
+    def _input_timeout(self):
+        if not self.config.visual_bell:
+            return 1000
+        remaining = self._visual_bell_until - time.monotonic()
+        if remaining <= 0:
+            return 1 if self._last_render_was_flash else 1000
+        return min(1000, max(1, math.ceil(remaining * 1000)))
+
+    def _notify_error(self, message):
+        """Show an error without sleeping, consuming input or changing the buffer."""
+        self.message = message
+        if self.config.visual_bell:
+            self._visual_bell_until = time.monotonic() + 0.1
+        if self.config.bell and self.stdscr is not None:
+            try:
+                sys.stdout.write('\a')
+                sys.stdout.flush()
+            except OSError:
+                pass
+
+    def _valid_search_pattern(self, term):
+        if self.search_options.regex:
+            try:
+                re.compile(term, re.IGNORECASE if self.search_options.ignore_case else 0)
+            except re.error:
+                self.all_matches, self.last_match = [], None
+                self._notify_error("[bad regex]")
+                return False
+        return True
 
     def _get_text_cols(self):
         if self.renderer is None:
@@ -175,6 +217,7 @@ class Application:
         self.stdscr.timeout(1000)
         while self.running:
             self.render()
+            self.stdscr.timeout(self._input_timeout())
             key = self._read_key()
             if key == -1:
                 self._tick_autosave()
@@ -193,6 +236,7 @@ class Application:
         
         sel = (self.selection.bounds(self.buffer, self.cursor.x, self.cursor.y)
                if self.selection.active else None)
+        visual_bell = self.visual_bell_active
         self.renderer.render(
             self.buffer, self.cursor, message=self.message,
             prompt=self.prompt, mode=self.mode.name.lower(),
@@ -203,8 +247,10 @@ class Application:
             help_scroll_y=self.help_scroll_y,
             git_markers=self.git_markers,
             grep_results=self.grep_results if self.mode == Mode.GREP else None,
-            grep_current=self.grep_current if self.mode == Mode.GREP else None
+            grep_current=self.grep_current if self.mode == Mode.GREP else None,
+            visual_bell=visual_bell,
         )
+        self._last_render_was_flash = visual_bell
 
     def _tick_autosave(self):
         if self.config.autosave_seconds > 0 and \
@@ -509,10 +555,12 @@ class Application:
         if not term:
             self.all_matches, self.last_match = [], None
             return
+        if not self._valid_search_pattern(term):
+            return
         try:
             self.all_matches = find_all(self.buffer, term, self.search_options)
         except Exception:
-            self.message = "[bad regex]"
+            self._notify_error("[bad regex]")
             self.all_matches = []
             return
         self.last_match = None
@@ -561,6 +609,9 @@ class Application:
 
     def _commit_prompt(self):
         text = self.prompt.text
+        if self.mode in (Mode.SEARCH, Mode.REPLACE_SEARCH):
+            if not self._valid_search_pattern(text):
+                return
         if self.mode == Mode.SEARCH:
             if text:
                 self._last_search = text
@@ -574,7 +625,7 @@ class Application:
                 except Exception:
                     self.all_matches = []
             else:
-                self.message = f"Not found: {text}"
+                self._notify_error(f"Not found: {text}")
         elif self.mode == Mode.REPLACE_SEARCH:
             self._replace_term = text
             self.mode = Mode.REPLACE_WITH
@@ -591,8 +642,11 @@ class Application:
             self.buffer.touch()
             self.message = f"Replaced {count} occurrence(s)"
         elif self.mode == Mode.SAVE_AS:
+            if not text:
+                self._notify_error("A filename is required.")
+                return
             self.buffer.filename = text
-            self._save()
+            self._save(force=True)
         elif self.mode == Mode.GOTO_LINE:
             try:
                 line = int(text) - 1
@@ -687,8 +741,9 @@ class Application:
             self.help_scroll_y = self.help_view.move("page_down", screen_rows, screen_cols)
 
     # ── file & exit ───────────────────────────────────────────
-    def _save(self):
+    def _save(self, force=False):
         if not self.buffer.filename:
+            self._notify_error("A filename is required.")
             self.mode = Mode.SAVE_AS
             self.prompt.start("Save As", "")
             return
@@ -702,11 +757,16 @@ class Application:
         else:
             self.message = ""
 
+        if (not force and not self.buffer.modified
+                and os.path.isfile(self.buffer.filename)):
+            self._notify_error("No changes to save.")
+            return
+
         if self.buffer.save():
             delete_swap(self.buffer.filename)
             self.message = f"Saved {self.buffer.filename}"
         else:
-            self.message = f"Error saving {self.buffer.filename}"
+            self._notify_error(f"Error saving {self.buffer.filename}")
 
     def _quit(self):
         if any(d.buffer.modified for d in self.documents):

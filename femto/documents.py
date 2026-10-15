@@ -18,7 +18,7 @@ class Document:
     def __init__(self, config, filename=None):
         file_config = config.for_file(filename) if filename else config
         self.buffer = Buffer(file_config)
-        self.buffer.load_file(filename)
+        self.load_failed = self.buffer.load_file(filename) is False
         self.cursor = Cursor()
         self.history = History()
         self.selection = Selection()
