@@ -2,6 +2,15 @@
 
 All notable changes to Femto are documented in this file.
 
+## [0.0.5a01]
+
+### Added
+- **Error Notifications:** Visual bell (100ms screen inversion) and audible bell for errors:
+  - Search not found, invalid regex, file >50MB, missing save filename, unchanged buffer, failed saves
+  - Non-blocking: uses timed input wait without sleeping or consuming user input
+  - Config: `bell` (default: false) and `visual_bell` (default: true)
+  - Preserves cursor position, text, and color pairs during flash
+
 ## [0.0.4] - 2026-10-15
 
 ### Features
