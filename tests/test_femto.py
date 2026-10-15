@@ -335,6 +335,33 @@ class TestNewlineHelpers(unittest.TestCase):
 
 
 class TestIOFidelity(unittest.TestCase):
+    def test_reject_file_larger_than_50_mb(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "large.txt")
+            with open(path, "wb") as f:
+                f.truncate(60 * 1024 * 1024)
+
+            buf = Buffer(Config())
+            result = buf.load_file(path)
+
+            self.assertFalse(result)
+            self.assertIsNone(buf.filename)
+            self.assertEqual(
+                buf.lines,
+                ["[Femto] File too large (60.0 MB). Limit is 50 MB."]
+            )
+
+    def test_small_file_loads_normally(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "small.txt")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("hello\nworld")
+
+            buf = Buffer(Config())
+            buf.load_file(path)
+
+            self.assertEqual(buf.lines, ["hello", "world"])
+
     def test_crlf_roundtrip(self):
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "crlf.txt")
