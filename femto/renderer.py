@@ -402,6 +402,61 @@ class Renderer:
                                  highlights, gutter_width)
             else:
                 self._safe_addstr(row, gutter_width, "~", curses.A_BOLD)
+                
+    def draw_filetree(self, screen_rows, screen_cols, filetree):
+        """Draw the file tree sidebar."""
+        try:
+            self.stdscr.erase()
+        except curses.error:
+            pass
+            
+        # Title bar
+        self._draw_bar(0, " File Browser - F2/Esc to close ",
+                screen_cols, self.bar_attr)
+                
+        if not filetree or not filetree.entries:
+            self._safe_addstr(2, 2, "No files found.")
+        else:
+            tree_width = min(30, screen_cols // 3)
+            text_width = screen_cols - tree_width
+            
+            # Draw tree sidebar
+            visible = filetree.get_visible_entries(screen_rows - 2)
+            for i, (name, path, is_dir, depth, _) in enumerate(visible):
+                row = i + 1
+                actual_idx = filetree.scroll_y + i
+                
+                # Highlight current selection
+                attr = curses.A_REVERSE if actual_idx == filetree.current else 0
+                
+                # Indent based on depth
+                indent = " " * depth
+                
+                # Directory marker
+                marker = "Fold " if is_dir else "File "
+                
+                display = f"{indent}{marker}{name}"
+                self._safe_addstr(row, 0, display[:tree_width], attr)
+                
+            # Draw separator
+            for row in range(1, screen_rows - 1):
+                self._safe_addstr(row, tree_width, "|")
+                
+            # Draw the preview or current file into
+            current_path = filetree.get_current_path()
+            if current_path:
+                preview_text = f"Selected: {current_path}"
+                self._safe_addstr(1, tree_width + 2, preview_text[:text_width - 2])
+                
+        # Help bar
+        self._draw_bar(screen_rows - 1,
+                "↑↓ Navigate Enter Open +/- Expand F2/Esc Close",
+                screen_cols, self.bar_attr)
+                
+        try:
+            self.stdscr.refresh()
+        except curses.error:
+            pass
 
     # ── overlays ─────────────────────────────────────────────
     def _overlap(self, bounds, x0, y, chunk_len):
@@ -591,7 +646,7 @@ class Renderer:
                all_matches=None, keybindings=None,
                doc_index=0, doc_count=1, help_scroll_y=0,
                git_markers=None, grep_results=None, grep_current=None,
-               visual_bell=False):
+               visual_bell=False, filetree=None):
         screen_rows, screen_cols = self.get_dimensions()
 
         if mode == "help":
@@ -604,6 +659,10 @@ class Renderer:
             self._last_sig = None
             self.draw_grep_results(screen_rows, screen_cols,
                         grep_results, grep_current, visual_bell)
+            return
+            
+        if mode == "filetree":
+            self.draw_filetree(screen_rows, screen_cols, filetree)
             return
 
         sig = (

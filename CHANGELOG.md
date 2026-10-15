@@ -5,6 +5,13 @@ All notable changes to Femto are documented in this file.
 ## [0.0.5a01]
 
 ### Added
+- **File Tree Browser:** Visual project navigation with F2.
+    - Browse directory structure with arrow keys
+    - Expand/collapse directories with +/- keys
+    - Enter opens selected file
+    - Respects .gitignore patterns and common ignore directories
+    - Shows file/directory for visual clarity
+
 - **Error Notifications:** Visual bell (100ms screen inversion) and audible bell for errors:
   - Search not found, invalid regex, file >50MB, missing save filename, unchanged buffer, failed saves
   - Non-blocking: uses timed input wait without sleeping or consuming user input

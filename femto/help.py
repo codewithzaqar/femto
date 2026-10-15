@@ -52,6 +52,7 @@ KEYBINDINGS = {
         ("^F / ^L", "Next / previous buffer"),
         ("^N", "Toggle line numbers"),
         ("^Q", "Toggle mouse support"),
+        ("F2", "Toggle file tree browser"),
     ],
     "Git Integration": [
         ("config: git_gutter", "Show +/-/~ markers for uncommitted changes"),

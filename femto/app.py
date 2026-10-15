@@ -24,6 +24,7 @@ from femto.sysclip import copy_to_system, paste_from_system
 from femto.layout import get_logical_from_visual_point
 from femto.gitgutter import get_git_diff_markers
 from femto.grep import grep_directory
+from femto.filetree import FileTree
 
 
 class Mode(Enum):
@@ -37,6 +38,7 @@ class Mode(Enum):
     REPLACE_CONFIRM = auto()
     HELP = auto()
     GREP = auto()
+    FILETREE = auto()
 
 
 class Application:
@@ -66,6 +68,7 @@ class Application:
         self.last_git_check = 0
         self.grep_results = []
         self.grep_current = 0
+        self.filetree = None
 
         if initial_files:
             for f in initial_files:
@@ -232,7 +235,7 @@ class Application:
                                       self.config.soft_wrap)
 
     def render(self):
-        self._refresh_git_markers()  # <-- ADD THIS LINE
+        self._refresh_git_markers()
         
         sel = (self.selection.bounds(self.buffer, self.cursor.x, self.cursor.y)
                if self.selection.active else None)
@@ -249,6 +252,7 @@ class Application:
             grep_results=self.grep_results if self.mode == Mode.GREP else None,
             grep_current=self.grep_current if self.mode == Mode.GREP else None,
             visual_bell=visual_bell,
+            filetree=self.filetree if self.mode == Mode.FILETREE else None
         )
         self._last_render_was_flash = visual_bell
 
@@ -269,6 +273,8 @@ class Application:
             self._handle_help(key, screen_rows, screen_cols)
         elif self.mode == Mode.GREP:
             self._handle_grep (key, screen_rows, screen_cols)
+        elif self.mode == Mode.FILETREE:
+            self._handle_filetree(key, screen_rows, screen_cols)
         elif self.mode in (Mode.SEARCH, Mode.REPLACE_SEARCH,
                            Mode.REPLACE_WITH, Mode.SAVE_AS, Mode.GOTO_LINE):
             self._handle_prompt(key, screen_rows, screen_cols)
@@ -375,6 +381,7 @@ class Application:
             elif key == curses.KEY_PPAGE: self.cursor.page_up(self.buffer, screen_rows)
             elif key == curses.KEY_NPAGE: self.cursor.page_down(self.buffer, screen_rows)
             elif key == curses.KEY_F1: self._enter_help()
+            elif key == curses.KEY_F2: self._toggle_filetree()
             elif is_backspace(key) or key == curses.KEY_BACKSPACE:
                 self._pre_edit()
                 self.cursor.x, self.cursor.y = self.buffer.backspace(self.cursor.x, self.cursor.y)
@@ -720,6 +727,41 @@ class Application:
             self.buffer.touch()
             return True
         return False
+
+    def _toggle_filetree(self):
+        """Toggle the file tree sidebar."""
+        if self.mode == Mode.FILETREE:
+            self.mode == Mode.NORMAL
+        else:
+            if self.filetree is None:
+                self.filetree = FileTree(os.getcwd())
+            self.mode = Mode.FILETREE
+            
+    def _handle_filetree(self, key, screen_rows=24, screen_cols=80):
+        """Handle input in file tree mode."""
+        if key == 27 or key == curses.KEY_F2:  # Esc or F2 to close
+            self.mode = Mode.NORMAL
+        elif key == curses.KEY_UP:
+            self.filetree.move_up()
+        elif key == curses.KEY_DOWN:
+            self.filetree.move_down()
+        elif key == curses.KEY_PPAGE:
+            for _ in range(screen_rows - 2):
+                self.filetree.move_up()
+        elif key == curses.KEY_NPAGE:
+            for _ in range(screen_rows - 2):
+                self.filetree.move_down()
+        elif key in (ord('+'), ord('=')):
+            self.filetree.toggle_expand()
+        elif key == ord('-'):
+            self.filetree.toggle_expand()
+        elif is_enter(key) or (isinstance(key, int) and key in (10, 13)):
+            path = self.filetree.get_current_path()
+            if path and os.path.isfile(path):
+                self.open_file(path)
+                self.mode = Mode.NORMAL
+            elif path and os.path.isdir(path):
+                self.filetree.toggle_expand()
 
     # ── help ──────────────────────────────────────────────────
     def _enter_help(self):
