@@ -739,6 +739,11 @@ class Application:
             
     def _handle_filetree(self, key, screen_rows=24, screen_cols=80):
         """Handle input in file tree mode."""
+        # Normalize key
+        k = key
+        if isinstance(key, str) and len(key) == 1:
+            k = ord(key)
+        
         if key == 27 or key == curses.KEY_F2:  # Esc or F2 to close
             self.mode = Mode.NORMAL
         elif key == curses.KEY_UP:
@@ -755,7 +760,7 @@ class Application:
             self.filetree.toggle_expand()
         elif key == ord('-'):
             self.filetree.toggle_expand()
-        elif is_enter(key) or (isinstance(key, int) and key in (10, 13)):
+        elif is_enter(key) or k in (10, 13, 343, 344):
             path = self.filetree.get_current_path()
             if path and os.path.isfile(path):
                 self.open_file(path)
