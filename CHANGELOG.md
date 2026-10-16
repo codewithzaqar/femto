@@ -18,6 +18,11 @@ All notable changes to Femto are documented in this file.
   - Config: `bell` (default: false) and `visual_bell` (default: true)
   - Preserves cursor position, text, and color pairs during flash
 
+### Documentation
+- **Configuration Reference:** Complete guide to all 22 config options with defaults, behabiors, and examples
+- **Keybinding Guide:** Shortcuts organized by editor mode (normal, search, prompts, file tree, help)
+- **README Updates:** Corrected config paths, exit behavior, and removed unsupported CLI examples
+
 ## [0.0.4] - 2026-10-15
 
 ### Features
