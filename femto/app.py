@@ -688,7 +688,12 @@ class Application:
 
     def _handle_grep(self, key, screen_rows=24, screen_cols=80):
         """Handle input in grep results view."""
-        if key == 27 or (isinstance(key, str) and key.lower() == 'q'):
+        # Normalize key (str from get_wch, int form getch)
+        k = key
+        if isinstance(key, str) and len(key) == 1:
+            k = ord(key)
+        
+        if key == 27 or k in (ord('q'), ord('Q')):
             self.mode = Mode.NORMAL
         elif key == curses.KEY_UP:
             self.grep_current = max(0, self.grep_current - 1)
@@ -699,7 +704,7 @@ class Application:
         elif key == curses.KEY_NPAGE:
             self.grep_current = min(len(self.grep_results) - 1,
                         self.grep_current + screen_rows)
-        elif is_enter(key) or (isinstance(key, int) and key in (10, 13)):
+        elif is_enter(key) or k in (10, 13, 343, 344):
             if self.grep_results:
                 filepath, line_num, _ = self.grep_results[self.grep_current]
                 root = os.getcwd()
