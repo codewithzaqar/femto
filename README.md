@@ -30,181 +30,44 @@ After installation, the `femto` command is available globally.
 ## Usage
 ```bash
 femto [file ...]        # open one or multiple files
-femto --line-numbers a.py x.py
-femto --tab-size 2 --regex x.py
-femto --version
+femto a.py x.py         # open two buffers
 ```
 
 ## Keybindings
 
-Press **F1** in normal editing mode to open read-only help. Use **Up/Down**, **PgUp/PgDn**, or **Home/End** to scroll; **Esc** or **q** returns to editing without changing the document. Bindings below are grouped by the context in which they work.
+See the [complete keybinding reference](docs/KEYBINDINGS.md) for shortcuts by
+mode, selection and search commands, and terminal compatibility notes.
 
-The tables and help share `KEYBINDINGS` in `femto/help.py`. When changing shortcuts, update that catalog and run `python -m femto.help` to regenerate the tables between the markers. The test suite checks that these tables stay in sync and exercises documented keys against the real input handlers. F1 is ignored in prompts and confirmations.
+| Key | Action in normal editing mode |
+| --- | --- |
+| Ctrl+S | Save; open Save As for an unnamed buffer. |
+| Ctrl+X | Exit; modified buffers require confirmation. **Confirming quits without saving.** |
+| Ctrl+P / Ctrl+U | Copy / paste. |
+| Ctrl+W | Search. |
+| Ctrl+F / Ctrl+L | Next / previous buffer. |
+| F1 / F2 | Open help / the file-tree browser. |
 
-<!-- KEYBINDINGS:START -->
-### Help (editing only)
+Save changes with Ctrl+S before confirming exit. In help, use Up/Down or
+PgUp/PgDn to scroll and Esc or q to return to editing.
 
-| Key | Action |
-|---|---|
-| `F1` | Open read-only help; Esc or q returns to editing |
+## Configuration
 
-### Terminal (outside help)
-
-| Key | Action |
-|---|---|
-| `Ctrl+C` | Interrupt and exit without save confirmation |
-
-### File and buffers (editing)
-
-| Key | Action |
-|---|---|
-| `Ctrl+X` | Exit; asks to save modified buffers |
-| `Ctrl+S` | Save; Save As if unnamed |
-| `Ctrl+F / Ctrl+L` | Next / previous buffer |
-
-### Navigation (editing)
-
-| Key | Action |
-|---|---|
-| `Arrows` | Move cursor |
-| `Ctrl+Left / Ctrl+Right` | Previous / next word |
-| `Shift+Left / Shift+Right` | Previous / next word |
-| `Home / Ctrl+A` | Line start |
-| `End / Ctrl+E` | Line end |
-| `PgUp / PgDn` | Move cursor one page up / down |
-| `Ctrl+T` | Go to line |
-
-### Editing
-
-| Key | Action |
-|---|---|
-| `Enter` | Insert newline |
-| `Tab` | Insert indentation at cursor |
-| `Shift+Tab` | Remove leading indentation from current line |
-| `Backspace / Ctrl+H` | Delete before cursor; join at line start |
-| `Delete` | Delete at cursor; join at line end |
-| `Ctrl+Z / Ctrl+Y` | Undo / redo |
-
-### Clipboard and selection (editing)
-
-| Key | Action |
-|---|---|
-| `Ctrl+B` | Set / clear selection mark; move cursor to select |
-| `Ctrl+K` | Cut selection, or current line if selection is empty |
-| `Ctrl+P` | Copy selection, or current line if selection is empty |
-| `Ctrl+U` | Paste internal clipboard |
-
-### Search and replace (editing)
-
-| Key | Action |
-|---|---|
-| `Ctrl+W` | Open search; Enter finds next (wraps at end of buffer) |
-| `Ctrl+\` | Replace: search term, replacement, then confirmation |
-
-### View and mouse (editing)
-
-| Key | Action |
-|---|---|
-| `Ctrl+N` | Toggle line numbers |
-| `Ctrl+D` | Toggle mouse support |
-| `Mouse click` | Move cursor to clicked position (mouse enabled) |
-| `Mouse wheel` | Move cursor three lines up / down (mouse enabled) |
-
-### Prompts (Save As, Search, Replace, Go To Line)
-
-| Key | Action |
-|---|---|
-| `Enter` | Confirm current prompt |
-| `Ctrl+G / Esc` | Cancel prompt |
-| `Left / Right` | Move prompt cursor |
-| `Home / End` | Start / end of prompt text |
-| `Backspace / Ctrl+H` | Delete before prompt cursor |
-| `Delete` | Delete at prompt cursor |
-
-### Search options (Search and Replace search prompts only)
-
-| Key | Action |
-|---|---|
-| `Ctrl+O` | Toggle case-insensitive search |
-| `Ctrl+R` | Toggle regular expressions |
-
-### Replace confirmation
-
-| Key | Action |
-|---|---|
-| `Y / N / A` | Replace current match / skip match / replace all |
-| `C / Ctrl+G / Esc` | Cancel remaining replacements |
-
-### Exit confirmation
-
-| Key | Action |
-|---|---|
-| `Y / N` | Save modified buffers and exit / exit without saving |
-| `C / Ctrl+G / Esc` | Cancel exit |
-
-### Help navigation (help only)
-
-| Key | Action |
-|---|---|
-| `Esc / q` | Close help and return to editing |
-| `Up / Down` | Scroll one help row |
-| `PgUp / PgDn` | Scroll one help page |
-| `Home / End` | First / last help page |
-<!-- KEYBINDINGS:END -->
-
-## Configuration (`~/.femtorc` or `./.femtorc`)
-
-Femto is highly customizable via a simple `key = value` configuration file.
+Femto reads the first existing file: `~/.femtorc`, then `./.femtorc`.
+The files are not merged. Restart the editor after changing settings.
 
 ```ini
-# Colors
-theme = default
-
-# Indentation
+# Put comments on their own lines, and do not quote values.
 tab_size = 4
-
-# Viewport
-smooth_scroll_margin = 3
-soft_wrap = true
-show_line_numbers = false
-syntax_highlight = true
-
-# Search
-ignore_case = false
-regex_search = false
-
-# Editing
-auto_indent = true
-system_clipboard = false
-
-# Wrapping
-wrap_at_word = true
-
-# Input & I/O
-mouse = false
-bell = false
-visual_bell = true
-make_backup = false
-# auto keeps the ending detected on load (LF for new files); lf or crlf forces it
-line_ending = auto
-final_newline = true  # ensure POSIX trailing newline
+show_line_numbers = true
+theme = default
+make_backup = true
+final_newline = true
 ```
 
-Femto includes five built-in color themes: `default`, `default-light`, `solarized-dark`, `solarized-light`, and `high-contrast`. Set `theme` in your configuration file to choose one.
-
-### Error notifications
-
-`visual_bell = true` briefly inverts the screen for 100 ms when a search fails,
-a search/replace pattern is invalid, an oversized file is rejected, or a save
-needs a filename, has no changes, or fails. Input remains responsive during the
-flash, and the normal screen is restored even without another keypress.
-
-Set `bell = true` to additionally emit the terminal BEL character (`\a`).
-Whether this produces sound depends on the terminal's settings. Both options
-can be disabled independently. Headless library use does not emit BEL.
-
-An unnamed buffer still opens Save As; an empty filename keeps that prompt open.
-An explicit Save As and creating a new, empty named file are still supported.
+See the [configuration reference](docs/CONFIGURATION.md) for all 22 options,
+defaults, parsing rules, themes, EditorConfig support, and a customization
+example. It also identifies settings that are parsed but not yet connected
+to the running editor.
 
 ## Running the tests
 
