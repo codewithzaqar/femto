@@ -307,7 +307,8 @@ class Renderer:
 
     # ── text area ─────────────────────────────────────────────
     def draw_text(self, buffer, cursor, screen_rows, screen_cols,
-                  sel=None, match=None, all_matches=None, git_markers=None):
+                  sel=None, match=None, all_matches=None, git_markers=None,
+                  column_mode=False):
         gutter_width = (len(str(len(buffer.lines))) + 1
                         if self.config.show_line_numbers else 0)
         text_cols = max(1, screen_cols - gutter_width)
@@ -356,7 +357,8 @@ class Renderer:
 
                 logical_x0 = sum(len(c) for c in chunks[:i])
                 self._draw_chunk(draw_y, chunk, logical_x0, y, sel, match,
-                                 all_matches, highlights, gutter_width)
+                                 all_matches, highlights, gutter_width,
+                                 column_mode)
                 visual_row += 1
 
         while visual_row - cursor.scroll_y < screen_rows:
@@ -368,7 +370,8 @@ class Renderer:
             visual_row += 1
 
     def _draw_text_hard(self, buffer, cursor, screen_rows, text_cols,
-                        sel, match, all_matches, gutter_width, git_markers=None):
+                        sel, match, all_matches, gutter_width, git_markers=None,
+                        column_mode=False):
         for row in range(screen_rows):
             y = row + cursor.scroll_y
             if self.config.show_line_numbers:
@@ -399,7 +402,7 @@ class Renderer:
                     highlights.append((trail_start, len(line), 10))
 
                 self._draw_chunk(row, chunk, x0, y, sel, match, all_matches,
-                                 highlights, gutter_width)
+                                 highlights, gutter_width, column_mode)
             else:
                 self._safe_addstr(row, gutter_width, "~", curses.A_BOLD)
                 
@@ -462,18 +465,29 @@ class Renderer:
             pass
 
     # ── overlays ─────────────────────────────────────────────
-    def _overlap(self, bounds, x0, y, chunk_len):
+    def _overlap(self, bounds, x0, y, chunk_len, column_mode=False):
+        """Compute the overlap interval between bounds and the chunk at (y, x0)."""
         (sx, sy), (ex, ey) = bounds
-        if not (sy <= y <= ey):
-            return None
-        line_start = sx if y == sy else 0
-        line_end = ex if y == ey else x0 + chunk_len
-        lo = max(0, line_start - x0)
-        hi = min(chunk_len, line_end - x0)
-        return (lo, hi) if lo < hi else None
+        
+        if column_mode:
+            # Column mode: bounds are (col_lo, row_lo), (col_hi, row_hi)
+            if not (sy <= y <= ey):
+                return None
+            lo = max(0, sx - x0)
+            hi = min(chunk_len, ex - x0)
+            return (lo, hi) if lo < hi else None
+        else:
+            # Linear mode: existing logic
+            if not (sy <= y <= ey):
+                return None
+            line_start = sx if y == sy else 0
+            line_end = ex if y == ey else x0 + chunk_len
+            lo = max(0, line_start - x0)
+            hi = min(chunk_len, line_end - x0)
+            return (lo, hi) if lo < hi else None
 
     def _draw_chunk(self, row, chunk, x0, y, sel, match, all_matches,
-                    highlights, gutter_offset=0):
+                    highlights, gutter_offset=0, column_mode=False):
         if not chunk:
             return
         intervals = []
@@ -497,7 +511,7 @@ class Renderer:
                 if lo < hi:
                     intervals.append((lo, hi, self.match_attr))
         if sel is not None:
-            iv = self._overlap(sel, x0, y, len(chunk))
+            iv = self._overlap(sel, x0, y, len(chunk), column_mode)
             if iv:
                 intervals.append((iv[0], iv[1], self.sel_attr))
         self._safe_addstr(row, gutter_offset, chunk)
@@ -645,7 +659,7 @@ class Renderer:
 
     # ── main entry ────────────────────────────────────────────
     def render(self, buffer, cursor, message="", prompt=None, mode="normal",
-               selection=None, mark_set=False, match=None,
+               selection=None, mark_set=False, column_mode=False, match=None,
                all_matches=None, keybindings=None,
                doc_index=0, doc_count=1, help_scroll_y=0,
                git_markers=None, grep_results=None, grep_current=None,
@@ -673,7 +687,7 @@ class Renderer:
             getattr(buffer, "revision", 0),
             buffer.filename,
             cursor.x, cursor.y, cursor.scroll_x, cursor.scroll_y,
-            selection, match, message, mode, mark_set,
+            selection, column_mode, match, message, mode, mark_set,
             screen_rows, screen_cols, doc_index, doc_count,
             self.config.show_line_numbers, self.config.mouse,
             self.config.syntax_highlight, self.config.soft_wrap,
@@ -695,7 +709,7 @@ class Renderer:
             pass
 
         self.draw_text(buffer, cursor, screen_rows, screen_cols,
-                       selection, match, all_matches, git_markers)
+                       selection, match, all_matches, git_markers, column_mode)
 
         if prompt and prompt.active and mode in self._PROMPT_HELP:
             self.draw_prompt(prompt, screen_rows, screen_cols,

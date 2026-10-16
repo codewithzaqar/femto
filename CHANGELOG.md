@@ -2,9 +2,15 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.5a01]
+## [0.0.5a02]
 
 ### Added
+- **Column Selection:** Rectangular selection with `Alt+B`.
+    - Set column mark with Alt+B, move cursor to define rectangle
+    - Cut/copy operations respect column mode (extract rectangle as block)
+    - Renderer highlights rectangular region across all affected lines
+    - Esc cancels back to no selection
+
 - **File Tree Browser:** Visual project navigation with F2.
     - Browse directory structure with arrow keys
     - Expand/collapse directories with +/- keys

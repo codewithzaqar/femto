@@ -36,6 +36,7 @@ KEYBINDINGS = {
     ],
     "Clipboard & Selection": [
         ("^B", "Set / clear mark"),
+        ("Alt+B", "Set / clear column (rectangular) mark"),
         ("^K", "Cut line or selection"),
         ("^C / ^P", "Copy line or selection"),
         ("^V / ^U", "Paste clipboard"),

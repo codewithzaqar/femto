@@ -180,6 +180,7 @@ class Application:
                 's': getattr(Key, 'ALT_S', None), 'S': getattr(Key, 'ALT_SHIFT_S', None),
                 'u': getattr(Key, 'ALT_U', None), 'U': getattr(Key, 'ALT_U', None),
                 'l': getattr(Key, 'ALT_L', None), 'L': getattr(Key, 'ALT_L', None),
+                'b': 'column_toggle', 'B': 'column_toggle',
             }
             mapped = mapping.get(char)
             if mapped is not None:
@@ -244,6 +245,7 @@ class Application:
             self.buffer, self.cursor, message=self.message,
             prompt=self.prompt, mode=self.mode.name.lower(),
             selection=sel, mark_set=self.selection.active,
+            column_mode=self.selection.column_mode if self.selection.active else False,
             match=self.last_match, all_matches=self.all_matches,
             keybindings=KEYBINDINGS if self.mode == Mode.HELP else None,
             doc_index=self.current, doc_count=len(self.documents),
@@ -296,6 +298,13 @@ class Application:
                    getattr(Key, 'ALT_S', None), getattr(Key, 'ALT_SHIFT_S', None),
                    getattr(Key, 'ALT_U', None), getattr(Key, 'ALT_L', None)):
             self._line_operation(key)
+            return
+
+        if key == 'column_toggle':
+            if self.selection.active and self.selection.column_mode:
+                self.selection.clear()
+            else:
+                self.selection.toggle(self.cursor.x, self.cursor.y, column_mode=True)
             return
 
         k = key
