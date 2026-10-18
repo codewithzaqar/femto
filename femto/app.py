@@ -25,6 +25,7 @@ from femto.layout import get_logical_from_visual_point
 from femto.gitgutter import get_git_diff_markers
 from femto.grep import grep_directory
 from femto.filetree import FileTree
+from femto.snippets import load_snippets, snippets_for_file
 
 
 class Mode(Enum):
@@ -69,6 +70,8 @@ class Application:
         self.grep_results = []
         self.grep_current = 0
         self.filetree = None
+        self.snippets = load_snippets(getattr(self.config, 'snippets_file', None))
+        self.snippet_state = None
 
         if initial_files:
             for f in initial_files:
@@ -354,6 +357,10 @@ class Application:
                             curses.mousemask(0)
                     except curses.error:
                         pass
+            elif k == 27:
+                if self.snippet_state is not None:
+                    self.snippet_state = None
+                    self.selection.clear()
             elif k == 20: self._goto_line()               # ^T goto line
             elif k == 28: self._replace()                 # ^\ replace
             elif k == 2: self.selection.toggle(self.cursor.x, self.cursor.y)  # ^B mark
@@ -391,6 +398,7 @@ class Application:
             elif key == curses.KEY_NPAGE: self.cursor.page_down(self.buffer, screen_rows)
             elif key == curses.KEY_F1: self._enter_help()
             elif key == curses.KEY_F2: self._toggle_filetree()
+            elif key == curses.KEY_F4: self._list_snippets()
             elif is_backspace(key) or key == curses.KEY_BACKSPACE:
                 self._pre_edit()
                 self.cursor.x, self.cursor.y = self.buffer.backspace(self.cursor.x, self.cursor.y)
@@ -398,11 +406,17 @@ class Application:
                 self._pre_edit()
                 self.buffer.delete_char(self.cursor.x, self.cursor.y)
             elif key == Key.TAB:
-                self._pre_edit()
-                self.cursor.x = self.buffer.insert_tab(self.cursor.y, self.cursor.x)
+                if self.snippet_state is not None:
+                    self._snippet_next()
+                elif not self._try_expand_snippet():
+                    self._pre_edit()
+                    self.cursor.x = self.buffer.insert_tab(self.cursor.y, self.cursor.x)
             elif key == curses.KEY_BTAB:
-                self._pre_edit()
-                self.cursor.x = self.buffer.remove_tab(self.cursor.y, self.cursor.x)
+                if self.snippet_state is not None:
+                    self._snippet_prev()
+                else:
+                    self._pre_edit()
+                    self.cursor.x = self.buffer.remove_tab(self.cursor.y, self.cursor.x)
 
     def _pre_edit(self):
         if self.selection.active:
@@ -957,6 +971,94 @@ class Application:
             else:
                 self.cursor.move_down(self.buffer, self.config.soft_wrap,
                                       self._get_text_cols())
+
+    # --- snippets -------------------------------------------------
+    def _word_before_cursor(self):
+        line = self.buffer.lines[self.cursor.y]
+        x = self.cursor.x
+        start = x
+        while start > 0 and (line[start - 1].isalnum() or line[start - 1] == '_'):
+            start -= 1
+        return line[start:x], start
+
+    def _try_expand_snippet(self):
+        if not getattr(self.config, 'snippets', True):
+            return False
+        word, start = self._word_before_cursor()
+        if not word:
+            return False
+        available = snippets_for_file(self.snippets, self.buffer.filename)
+        snip = available.get(word)
+        if snip is None:
+            return False
+
+        self._snapshot()
+        # Remove the trigger word
+        line = self.buffer.lines[self.cursor.y]
+        self.buffer.lines[self.cursor.y] = line[:start] + line[self.cursor.x:]
+        ix, iy = start, self.cursor.y
+
+        # Insert expanded text (reuse Clipboard multiline insert)
+        from femto.clipboard import Clipboard
+        cb = Clipboard()
+        cb.store(snip.plain_text())
+        cb.paste_into(self.buffer, ix, iy)
+
+        # Map tab-stop offsets to absolute buffer positions
+        text = snip.plain_text()
+        stops = []
+        for offset, length in snip.stop_positions():
+            pre = text[:offset]
+            dy = pre.count("\n")
+            col = offset - (pre.rfind("\n") + 1) if "\n" in pre else offset
+            if dy == 0:
+                stops.append((ix + col, iy, length))
+            else:
+                stops.append((col, iy + dy, length))
+
+        self.snippet_state = {'stops': stops, 'index': -1}
+        self.message = f"Snippet '{word}' expanded - Tab/Shift+Tab to jump"
+        self._snippet_next()
+        return True
+
+    def _snippet_next(self):
+        st = self.snippet_state
+        if st is None:
+            return
+        st['index'] += 1
+        if st['index'] >= len(st['stops']):
+            self.snippet_state = None
+            self.selection.clear()
+            return
+        self._goto_stop(st['index'])
+
+    def _snippet_prev(self):
+        st = self.snippet_state
+        if st is None:
+            return
+        st['index'] = max(0, st['index'] - 1)
+        self._goto_stop(st['index'])
+
+
+    def _goto_stop(self, i):
+        x, y, ln = self.snippet_state['stops'][i]
+        self.cursor.set_pos(x, y, self.buffer.get_line_length, self.buffer.max_y)
+        if ln > 0:
+            # Select the placeholder so typing replaces it
+            self.selection.active = True
+            self.selection.column_mode = False
+            self.selection.start_x, self.selection.start_y = x, y
+            self.cursor.set_pos(x + ln, y,
+                        self.buffer.get_line_length, self.buffer.max_y)
+        else:
+            self.selection.clear()
+
+    def _list_snippets(self):
+        available = snippets_for_file(self.snippets, self.buffer.filename)
+        if available:
+            self.message = "Snippets: " + ", ".join(sorted(available)[:8])
+        else:
+            self.message = "No snippets for this file type"
 
 # ── entry point ───────────────────────────────────────────────
 def main():

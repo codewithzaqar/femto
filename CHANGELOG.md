@@ -2,9 +2,15 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.5a02]
+## [0.0.5a03]
 
 ### Added
+- **Snippet Expansion:** Type a trigger and press Tab to expand templates.
+    - Snippets defined in `~/config/femto/snippets.ini` (INI format, per filetype + global)
+    - Tab stops `${1:placeholder}` selected in order; typing replaces placeholder
+    - Tab / Shift+Tab navigate stops, Esc exits snippet mode, F4 lists snippets
+    - Ships with default Python/JavaScript/global snippets
+
 - **Column Selection:** Rectangular selection with `Alt+B`.
     - Set column mark with Alt+B, move cursor to define rectangle
     - Cut/copy operations respect column mode (extract rectangle as block)

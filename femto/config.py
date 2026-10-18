@@ -117,6 +117,8 @@ class Config:
         self.trim_on_save = False
         self.theme = "default"
         self.load()
+        self.snippets = True
+        self.snippets_file = None
 
     def load(self):
         paths = [
@@ -210,5 +212,9 @@ class Config:
                             self.trim_on_save = val.lower() in ("true", "1", "yes")
                         elif key == "theme":
                             self.theme = val
+                        elif key == "snippets":
+                            self.snippets = val.lower() in ("true", "1", "yes")
+                        elif key == "snippets_file":
+                            self.snippets_file = val
         except Exception:
             pass
