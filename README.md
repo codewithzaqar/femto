@@ -1,41 +1,48 @@
 # Femto
 
-### A tiny, fast, and lightweight terminal text editor written in Python.
+### A tiny, Nano-style terminal text editor written in Python.
 
-[![PyPI version](https://img.shields.io/pypi/v/femto-editor?style=flat-square&color=blue)](https://pypi.org/project/femto-editor/)
-[![Python](https://img.shields.io/badge/Python-3-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/codewithzaqar/femto?style=flat-square)](https://github.com/codewithzaqar/femto/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/codewithzaqar/femto?style=flat-square)](https://github.com/codewithzaqar/femto/forks)
+[![PyPI version](https://img.shields.io/pypi/v/femto-editor)](https://pypi.org/project/femto-editor/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-Standard%20Library-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![GitHub stars](https://img.shields.io/github/stars/codewithzaqar/femto?style=social)](https://github.com/codewithzaqar/femto/stargazers)
 
-**Femto** is a lightweight, nano-style terminal text editor built with Python and the standard library. It brings practical editing features directly to your terminal without the overhead of a large editor.
+**Femto** is a lightweight, keyboard-driven terminal text editor inspired by GNU Nano. Built with Python and the standard-library `curses` module, it provides an efficient text-editing experience directly in your terminal.
 
-Designed for developers who value simplicity, portability, and a focused terminal workflow.
+Femto aims to keep things simple: open your files, edit your text, navigate between buffers, search for content, and save your changes without the overhead of a heavyweight editor.
 
-[**Get started**](#-installation) · [**Features**](#-features) · [**Report a bug**](https://github.com/codewithzaqar/femto/issues) · [**Contribute**](CONTRIBUTING.md)
+- **Lightweight:** No third-party runtime dependencies on POSIX systems.
+- **Terminal-native:** Edit files directly inside your terminal.
+- **Keyboard-driven:** Navigate and edit using familiar shortcuts.
+- **Unicode-aware:** Support for Unicode text, including CJK characters and emoji.
+- **Configurable:** Customize the editor's behavior and appearance.
 
----
+**Repository:** [codewithzaqar/femto](https://github.com/codewithzaqar/femto)
 
-## ✨ Features
+## Features
 
-- **Lightweight by design** — uses Python's standard library on POSIX systems.
-- **Multiple buffers** — open and switch between multiple files in one session.
-- **Syntax highlighting** — make source code easier to read.
-- **Search and replace** — find text using regular expressions.
-- **Unicode support** — work with international text, CJK characters, and emoji.
-- **Soft line wrapping** — read long lines without horizontal scrolling.
-- **Mouse support** — interact with the editor using a supported terminal.
-- **Built-in help** — access the editor's keybinding help screen.
-- **File-tree browser** — browse files from inside the editor.
-- **Configurable experience** — customize settings, themes, and editing behavior.
+- **Multi-buffer editing** — Open multiple files and switch between buffers.
+- **Soft line wrapping** — Read and edit long lines without inserting extra newline characters.
+- **Python syntax highlighting** — Highlight Python source files, including stateful docstring highlighting.
+- **Search and replace** — Search within documents, optionally use regular expressions, and replace matching text.
+- **Unicode support** — Handle wide characters, CJK text, and emoji.
+- **Mouse support** — Position the cursor with mouse clicks when supported by your terminal.
+- **Line numbers** — Toggle line numbers while editing.
+- **Undo and redo** — Reverse and restore editing operations.
+- **Selection and clipboard** — Select, copy, cut, and paste text.
+- **File-tree browser** — Browse directories and open files from the editor.
+- **Built-in help** — Access the keyboard shortcut reference with F1.
+- **Configurable themes** — Choose from built-in themes and customize editor settings.
+- **Automatic indentation** — Preserve indentation when inserting new lines.
+- **Backup and recovery options** — Configure file backups and recovery-related behavior.
 
-## 🚀 Installation
+> Note: Regular-expression matching applies to search. The current replace operation performs literal, case-sensitive replacement throughout the buffer.
 
-Femto is available on PyPI as `femto-editor`.
+## Installation
 
-### Option 1: Install with pipx
+### Option 1: Install with pipx (recommended)
 
-Recommended for installing a command-line application in an isolated environment.
+[pipx](https://pipx.pypa.io/) installs Python applications in isolated environments and makes their commands available from your terminal.
 
 ```bash
 pipx install femto-editor
@@ -44,148 +51,226 @@ pipx install femto-editor
 ### Option 2: Install with pip
 
 ```bash
-python -m pip install femto-editor
+pip install femto-editor
 ```
 
 ### Option 3: Install from source
 
+Clone the repository and install the local package:
+
 ```bash
 git clone https://github.com/codewithzaqar/femto.git
 cd femto
-python -m pip install .
+pip install .
 ```
 
 After installation, the `femto` command should be available in your terminal.
 
-## 💻 Quick start
+### Platform support
 
-Open a file:
+- **Linux and other POSIX systems:** Uses the Python standard-library `curses` module without third-party runtime dependencies.
+- **Windows:** The package automatically installs `windows-curses` when required.
 
-```bash
-femto README.md
-```
+Terminal behavior and shortcut availability can vary depending on your operating system and terminal emulator.
 
-Open multiple files:
+## Quick start
 
-```bash
-femto main.py utils.py
-```
-
-Start the editor without specifying a file:
+Open the editor without specifying a file:
 
 ```bash
 femto
 ```
 
-## ⌨️ Essential keyboard shortcuts
+Open an existing file:
+
+```bash
+femto README.md
+```
+
+Create or edit a Python file:
+
+```bash
+femto hello.py
+```
+
+Open multiple files in separate buffers:
+
+```bash
+femto main.py utils.py README.md
+```
+
+You can switch between buffers without launching a separate editor for every file.
+
+## Keyboard shortcuts
+
+The following shortcuts apply to normal editing mode. Some combinations may be intercepted by your terminal.
 
 | Shortcut | Action |
-| --- | --- |
+|---|---|
 | `Ctrl + S` | Save the current file |
 | `Ctrl + X` | Exit the editor |
-| `Ctrl + W` | Search |
-| `Ctrl + P` | Copy |
-| `Ctrl + U` | Paste |
 | `Ctrl + F` | Switch to the next buffer |
 | `Ctrl + L` | Switch to the previous buffer |
+| `Ctrl + W` | Open search |
+| `Ctrl + P` | Copy the selection or current line |
+| `Ctrl + U` | Paste from the internal clipboard |
+| `Ctrl + K` | Cut the selection or current line |
+| `Ctrl + Z` | Undo |
+| `Ctrl + Y` | Redo |
+| `Ctrl + N` | Toggle line numbers |
+| `Ctrl + T` | Go to a specific line |
 | `F1` | Open the help screen |
 | `F2` | Open the file-tree browser |
+| Arrow keys | Move the cursor |
 
-**Tip:** Save your changes before exiting. If a buffer has unsaved changes, Femto asks for confirmation before quitting.
+**Important:** When exiting with unsaved changes, Femto asks for confirmation. Confirming exit discards those changes. Save your files with `Ctrl + S` before leaving if you want to keep them.
 
-## ⚙️ Configuration
+For additional shortcuts, selection commands, search behavior, and terminal compatibility notes, see the [complete keybinding reference](docs/KEYBINDINGS.md).
+
+## Configuration
 
 Femto supports a `.femtorc` configuration file.
 
-It checks these locations in order:
+The editor checks these locations in order:
 
 1. `~/.femtorc`
-2. `./.femtorc`
+2. `.femtorc` in the current working directory, but only if the home configuration does not exist.
 
-The first existing file is used; the files are not merged.
+The files are not merged. Restart Femto after changing configuration settings.
 
-Example configuration:
+### Example configuration
+
+Create a file named `~/.femtorc` and add:
 
 ```ini
+# Indentation
 tab_size = 4
+auto_indent = true
+
+# Display
 show_line_numbers = true
+soft_wrap = true
+wrap_at_word = true
+syntax_highlight = true
 theme = default
+
+# File handling
 make_backup = true
 final_newline = true
+trim_on_save = false
+
+# Input
+mouse = false
+system_clipboard = false
 ```
 
-Restart Femto after changing configuration settings.
+Configuration values use `key = value` syntax. Do not wrap values in quotes.
 
-See the project's documentation for the full list of configuration options and supported themes.
+Available themes include:
 
-## 🧪 Running tests
+- `default`
+- `default-light`
+- `solarized-dark`
+- `solarized-light`
+- `high-contrast`
 
-Femto includes a regression test suite using Python's built-in `unittest` framework.
+Some settings are accepted by the configuration parser but are not yet connected to the running editor. Check the [configuration reference](docs/CONFIGURATION.md) for the implemented behavior, defaults, and limitations.
 
-Run the tests from the repository root:
+Femto also supports a subset of [EditorConfig](https://editorconfig.org/) settings for named files.
+
+## Running the tests
+
+Femto includes a regression test suite based on Python's built-in `unittest` framework.
+
+Clone the repository, enter its directory, and run:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## 🛠️ Built with
+The test suite is designed to run without an interactive terminal.
 
-- **Python** — the implementation language.
-- **curses** — terminal user-interface support.
-- **Python standard library** — minimal runtime dependencies on POSIX systems.
+## Project structure
 
-On Windows, the project uses `windows-curses` to provide terminal support.
+The repository is organized around the application, its supporting modules, documentation, and tests.
 
-## 🗺️ Roadmap
+```text
+femto/
+├── .github/
+├── assets/
+├── docs/
+│   ├── KEYBINDINGS.md
+│   └── CONFIGURATION.md
+├── femto/
+├── tests/
+├── .femtorc
+├── CHANGELOG.md
+├── LICENSE
+├── README.md
+├── femto.py
+└── pyproject.toml
+```
 
-Femto is an evolving open-source project. Potential areas for future development include:
+- `femto/` — Core application and supporting modules.
+- `tests/` — Automated regression tests.
+- `docs/` — Keyboard shortcuts and configuration documentation.
+- `assets/` — Project assets.
+- `CHANGELOG.md` — Version history.
+- `pyproject.toml` — Python packaging and project configuration.
 
-- Improving the editing experience and usability.
-- Expanding documentation and usage examples.
-- Refining terminal compatibility.
-- Improving tests and reliability.
-- Listening to community feedback and feature requests.
+## Design philosophy
 
-Have an idea? [Open a feature request](https://github.com/codewithzaqar/femto/issues).
+Femto is built around a few simple principles:
 
-## 🤝 Contributing
+1. **Keep it lightweight.** Avoid unnecessary dependencies and complexity.
+2. **Stay in the terminal.** Make text editing available wherever a terminal is available.
+3. **Prioritize usability.** Provide useful editing features through clear keyboard interactions.
+4. **Keep configuration practical.** Allow users to customize the editor without a complicated setup.
+5. **Improve incrementally.** Build, test, document, and refine the project over time.
 
-Contributions, bug reports, suggestions, and documentation improvements are welcome.
+Femto is an evolving open-source project. Features and behavior may change as development continues.
 
-1. Explore the existing [issues](https://github.com/codewithzaqar/femto/issues).
-2. Read the [contribution guidelines](CONTRIBUTING.md).
-3. Fork the repository and create a branch for your changes.
-4. Make your changes and run the test suite.
-5. Submit a pull request describing your improvements.
+## Contributing
 
-Even a small contribution can make Femto better for everyone.
+Contributions, bug reports, feature suggestions, and feedback are welcome.
 
-## 🐛 Found a bug?
+To get started:
 
-If you encounter a bug or unexpected behavior, please [open an issue](https://github.com/codewithzaqar/femto/issues).
+1. Explore the [repository](https://github.com/codewithzaqar/femto).
+2. Check existing [issues](https://github.com/codewithzaqar/femto/issues).
+3. Reproduce a bug or identify a specific improvement.
+4. Create a focused change and add tests when appropriate.
+5. Open a pull request describing what changed and why.
 
-Include the steps to reproduce the problem, your operating system, your Python version, and any relevant error messages.
+Please keep contributions focused, documented, and consistent with the project's lightweight design philosophy.
 
-## 📦 Project links
+## Roadmap
 
-- **Repository:** [github.com/codewithzaqar/femto](https://github.com/codewithzaqar/femto)
-- **PyPI:** [pypi.org/project/femto-editor](https://pypi.org/project/femto-editor/)
-- **Issues:** [Report a bug or request a feature](https://github.com/codewithzaqar/femto/issues)
-- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
-- **License:** [MIT License](LICENSE)
+Future improvements can be discussed through GitHub Issues. Potential areas to explore include:
 
-## 📄 License
+- Improving terminal compatibility.
+- Expanding editing and navigation capabilities.
+- Refining syntax highlighting.
+- Improving configuration and documentation.
+- Strengthening automated test coverage.
 
-Femto is open-source software released under the [MIT License](LICENSE).
+These are potential development directions, not promises that every item is currently implemented or scheduled.
 
-## ⭐ Support the project
+## License
 
-If Femto is useful to you, consider giving it a **star on GitHub**.
+Femto is released under the [MIT License](LICENSE).
 
-Stars help other developers discover the project and encourage continued development.
+You are welcome to use, modify, and distribute the project under the terms of that license.
 
-**Built with Python. Made for the terminal.**
+## Author
+
+**Zaqar Hakobyan** — creator and maintainer of Femto.
+
+- GitHub: [@codewithzaqar](https://github.com/codewithzaqar)
+- Project: [Femto](https://github.com/codewithzaqar/femto)
 
 ---
 
-Created and maintained by [@codewithzaqar](https://github.com/codewithzaqar).
+If you find Femto useful, consider giving the repository a ⭐ on GitHub. It helps other developers discover the project.
+
+**Built with Python. Designed for the terminal.**
