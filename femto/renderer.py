@@ -17,6 +17,7 @@ import weakref
 from femto.theme import load_theme, nearest_xterm_256, xterm_256_rgb
 from femto import __version__, __app_name__
 from femto.layout import chunk_line, get_visual_position
+from femto.diffview import count_diffs
 
 try:
     from femto.highlight import highlight_line
@@ -655,6 +656,7 @@ class Renderer:
         "replace_search": "Enter Continue    ^O Case    ^R Regex    ^G Cancel",
         "replace_with": "Enter Confirm    ^G Cancel",
         "goto_line": "Enter Jump    ^G Cancel",
+        "diff_pick": "Enter Compare    ^G Cancel",
     }
 
     # ── main entry ────────────────────────────────────────────
@@ -663,7 +665,7 @@ class Renderer:
                all_matches=None, keybindings=None,
                doc_index=0, doc_count=1, help_scroll_y=0,
                git_markers=None, grep_results=None, grep_current=None,
-               visual_bell=False, filetree=None):
+               visual_bell=False, filetree=None, diff_state=None):
         screen_rows, screen_cols = self.get_dimensions()
 
         if mode == "help":
@@ -676,6 +678,10 @@ class Renderer:
             self._last_sig = None
             self.draw_grep_results(screen_rows, screen_cols,
                         grep_results, grep_current, visual_bell)
+            return
+
+        if mode == "diff":
+            self.draw_diff(screen_rows, screen_cols, diff_state)
             return
             
         if mode == "filetree":
@@ -698,6 +704,7 @@ class Renderer:
             if prompt and prompt.active else None,
             frozenset(git_markers.items()) if git_markers else None,
             visual_bell,
+            (diff_state['current'], diff_state['scroll']) if diff_state else None,
         )
         if sig == self._last_sig:
             return
@@ -726,3 +733,61 @@ class Renderer:
             self.draw_cursor(cursor, buffer, screen_cols)
 
         self._refresh_screen(visual_bell)
+
+    def draw_diff(self, screen_rows, screen_cols, st):
+        """Draw the side-by-side diff view."""
+        try:
+            self.stdscr.erase()
+        except curses.error:
+            pass
+        if not st:
+            self._draw_bar(screen_rows - 1, " No diff loaded ", screen_cols,
+                           self.bar_attr)
+            return
+
+        self._draw_bar(0, f" Diff: {st['left_name']}  <->  {st['right_name']} ",
+                       screen_cols, self.bar_attr)
+
+        half = max(10, (screen_cols - 1) // 2)
+
+        # Pane headers
+        self._safe_addstr(1, 0, st['left_name'][:half], curses.A_BOLD)
+        self._safe_addstr(1, half + 1,
+                          st['right_name'][:screen_cols - half - 1],
+                          curses.A_BOLD)
+
+        vis = max(1, screen_rows - 4)
+        for i in range(vis):
+            idx = st['scroll'] + i
+            row = 2 + i
+            if idx >= len(st['rows']):
+                break
+            li, ri, kind = st['rows'][idx]
+
+            if kind == 'added':
+                attr = curses.color_pair(3)     # green
+            elif kind == 'removed':
+                attr = curses.color_pair(8)     # red
+            elif kind == 'changed':
+                attr = curses.color_pair(6)     # yellow
+            else:
+                attr = 0
+            cur = curses.A_REVERSE if idx == st['current'] else 0
+
+            ltext = f"{li + 1:>4} {st['left'][li]}" if li is not None else "     --"
+            rtext = f"{ri + 1:>4} {st['right'][ri]}" if ri is not None else "     --"
+
+            self._safe_addstr(row, 0, ltext[:half], attr | cur)
+            self._safe_addstr(row, half, "|", curses.A_BOLD)
+            self._safe_addstr(row, half + 1,
+                              rtext[:screen_cols - half - 1], attr | cur)
+
+        self._draw_bar(screen_rows - 1,
+                       f" row {st['current'] + 1}/{len(st['rows'])}"
+                       f"  diffs: {count_diffs(st['rows'])}"
+                       "   n/p next/prev   q/F3 close",
+                       screen_cols, self.bar_attr)
+        try:
+            self.stdscr.refresh()
+        except curses.error:
+            pass

@@ -2,9 +2,15 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.5a03]
+## [0.0.5a04]
 
 ### Added
+- **Side-by-Side Diff Viewer:** Compare the current buffer against any file (F3).
+    - Color-coded panes: green = added, red = removed, yellow = changed
+    - Synchronized scrolling with arrow keys / PgUp / PgDn
+    - n/p jump between differences; q/Esc/F3 close
+    - Pure stdlib via difflib.SequenceMatcher with opcode alignment
+
 - **Snippet Expansion:** Type a trigger and press Tab to expand templates.
     - Snippets defined in `~/config/femto/snippets.ini` (INI format, per filetype + global)
     - Tab stops `${1:placeholder}` selected in order; typing replaces placeholder

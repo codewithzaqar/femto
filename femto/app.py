@@ -26,6 +26,7 @@ from femto.gitgutter import get_git_diff_markers
 from femto.grep import grep_directory
 from femto.filetree import FileTree
 from femto.snippets import load_snippets, snippets_for_file
+from femto.diffview import compute_diff, next_diff, prev_diff, count_diffs
 
 
 class Mode(Enum):
@@ -40,6 +41,8 @@ class Mode(Enum):
     HELP = auto()
     GREP = auto()
     FILETREE = auto()
+    DIFF = auto()
+    DIFF_PICK = auto()
 
 
 class Application:
@@ -72,6 +75,7 @@ class Application:
         self.filetree = None
         self.snippets = load_snippets(getattr(self.config, 'snippets_file', None))
         self.snippet_state = None
+        self.diff_state = None
 
         if initial_files:
             for f in initial_files:
@@ -257,7 +261,8 @@ class Application:
             grep_results=self.grep_results if self.mode == Mode.GREP else None,
             grep_current=self.grep_current if self.mode == Mode.GREP else None,
             visual_bell=visual_bell,
-            filetree=self.filetree if self.mode == Mode.FILETREE else None
+            filetree=self.filetree if self.mode == Mode.FILETREE else None,
+            diff_state=self.diff_state if self.mode == Mode.DIFF else None
         )
         self._last_render_was_flash = visual_bell
 
@@ -280,8 +285,11 @@ class Application:
             self._handle_grep (key, screen_rows, screen_cols)
         elif self.mode == Mode.FILETREE:
             self._handle_filetree(key, screen_rows, screen_cols)
+        elif self.mode == Mode.DIFF:
+            self._handle_diff(key, screen_rows, screen_cols)
         elif self.mode in (Mode.SEARCH, Mode.REPLACE_SEARCH,
-                           Mode.REPLACE_WITH, Mode.SAVE_AS, Mode.GOTO_LINE):
+                           Mode.REPLACE_WITH, Mode.SAVE_AS, Mode.GOTO_LINE,
+                           Mode.DIFF_PICK):
             self._handle_prompt(key, screen_rows, screen_cols)
         elif self.mode == Mode.EXIT_CONFIRM:
             self._handle_exit_confirm(key)
@@ -398,6 +406,7 @@ class Application:
             elif key == curses.KEY_NPAGE: self.cursor.page_down(self.buffer, screen_rows)
             elif key == curses.KEY_F1: self._enter_help()
             elif key == curses.KEY_F2: self._toggle_filetree()
+            elif key == curses.KEY_F3: self._start_diff()
             elif key == curses.KEY_F4: self._list_snippets()
             elif is_backspace(key) or key == curses.KEY_BACKSPACE:
                 self._pre_edit()
@@ -684,6 +693,30 @@ class Application:
                                     self.buffer.get_line_length, self.buffer.max_y)
             except ValueError:
                 self.message = "Invalid line number"
+        elif self.mode == Mode.DIFF_PICK:
+            path = text
+            self.prompt.clear()
+            if path and os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                        right = f.read().splitlines() or ['']
+                except OSError:
+                    right = ['']
+                left = self.buffer.lines[:]
+                self.diff_state = {
+                    'left_name': self.buffer.filename or 'buffer',
+                    'right_name': path,
+                    'left': left,
+                    'right': right,
+                    'rows': compute_diff(left, right),
+                    'current': 0,
+                    'scroll': 0,
+                }
+                self.mode = Mode.DIFF
+            else:
+                self.message = f"No such file: {path}"
+                self.mode = Mode.NORMAL
+            return
         self.mode = Mode.NORMAL
         self.prompt.clear()
 
@@ -1059,6 +1092,45 @@ class Application:
             self.message = "Snippets: " + ", ".join(sorted(available)[:8])
         else:
             self.message = "No snippets for this file type"
+
+    # ── diff view ─────────────────────────────────────────────
+    def _start_diff(self):
+        self.mode = Mode.DIFF_PICK
+        self.prompt.start("Diff with", "")
+
+    def _handle_diff(self, key, screen_rows=24, screen_cols=80):
+        st = self.diff_state
+        if st is None:
+            self.mode = Mode.NORMAL
+            return
+        k = key
+        if isinstance(key, str) and len(key) == 1:
+            k = ord(key)
+        max_row = len(st['rows']) - 1
+        vis = max(1, screen_rows - 4)
+
+        if k == 27 or k in (ord('q'), ord('Q')) or key == curses.KEY_F3:
+            self.diff_state = None
+            self.mode = Mode.NORMAL
+        elif key == curses.KEY_UP:
+            st['current'] = max(0, st['current'] - 1)
+        elif key == curses.KEY_DOWN:
+            st['current'] = min(max_row, st['current'] + 1)
+        elif key == curses.KEY_PPAGE:
+            st['current'] = max(0, st['current'] - vis)
+        elif key == curses.KEY_NPAGE:
+            st['current'] = min(max_row, st['current'] + vis)
+        elif k in (ord('n'), ord('N')):
+            st['current'] = next_diff(st['rows'], st['current'])
+        elif k in (ord('p'), ord('P')):
+            st['current'] = prev_diff(st['rows'], st['current'])
+
+        # Keep viewport following the current row
+        if st['current'] < st['scroll']:
+            st['scroll'] = st['current']
+        elif st['current'] >= st['scroll'] + vis:
+            st['scroll'] = st['current'] - vis + 1
+
 
 # ── entry point ───────────────────────────────────────────────
 def main():

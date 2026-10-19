@@ -64,6 +64,12 @@ KEYBINDINGS = {
         ("Wheel", "Scroll viewport"),
         ("Click", "Move cursor to point"),
     ],
+    "Diff View": [
+        ("F3", "Compare buffer with another file / close diff"),
+        ("Up/Down, PgUp/PgDown", "Scroll both panes in sync"),
+        ("n / p", "Next / previous difference"),
+        ("q / Esc", "Close diff view"),
+    ]
 }
 
 
