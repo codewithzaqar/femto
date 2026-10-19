@@ -2,7 +2,9 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.5a04]
+## [0.0.5rc1]
+
+The v0.0.5 cycle brings powerful new editing capabiltes while keeping the zero-dependency, pure-stdlib philosophy intact. Four alpha release, two community PRs, and extensive bug-fixing round out this milestone.
 
 ### Added
 - **Side-by-Side Diff Viewer:** Compare the current buffer against any file (F3).
