@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "femto-editor"
-version = "0.0.4"
+version = "0.0.5"
 description = "Femto - a tiny nano-style terminal text editor in pure Python"
 readme = "README.md"
 requires-python = ">=3.8"

@@ -2,7 +2,7 @@
 
 All notable changes to Femto are documented in this file.
 
-## [0.0.5rc1]
+## [0.0.5] - 2026-10-19
 
 The v0.0.5 cycle brings powerful new editing capabiltes while keeping the zero-dependency, pure-stdlib philosophy intact. Four alpha release, two community PRs, and extensive bug-fixing round out this milestone.
 
@@ -42,6 +42,14 @@ The v0.0.5 cycle brings powerful new editing capabiltes while keeping the zero-d
 - **Configuration Reference:** Complete guide to all 22 config options with defaults, behabiors, and examples
 - **Keybinding Guide:** Shortcuts organized by editor mode (normal, search, prompts, file tree, help)
 - **README Updates:** Corrected config paths, exit behavior, and removed unsupported CLI examples
+
+### Contributors
+
+Massive thanks to everyone who made this release possible:
+
+- **@xmeji** - Terminal bell & visual notifications
+- **@ninaad-padiyan** - Configuration and keybinding documentation
+- **@drathava847-beep** - Truecolor themes, 50MB fast-fail, search highlighting, Unicode/tab completion
 
 ## [0.0.4] - 2026-10-15
 

@@ -1,4 +1,4 @@
-# Femto v0.0.4
+# Femto v0.0.5
 
 Femto is a tiny, nano-style terminal text editor written in **pure Python**.
 It ships with zero runtime dependencies on POSIX system (standard-library `curses` only) and automatically pulls `windows-curses` on Windows.
