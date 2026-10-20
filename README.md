@@ -2,6 +2,12 @@
 
 ### A tiny, Nano-style terminal text editor written in Python.
 
+<p align="center">
+    <img src="assets/femto-demo.png" alt="Femto v0.0.3 Terminal Editor Demo" width="800">
+    <br>
+    <em>Femto v0.0.3: Featuring the F1 help screen, stateful Python docstring highlighting, word-boundary wrapping, and multi-match search overlays.</em>
+</p>
+
 [![PyPI version](https://img.shields.io/pypi/v/femto-editor)](https://pypi.org/project/femto-editor/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-Standard%20Library-3776AB?logo=python&logoColor=white)](https://www.python.org/)
